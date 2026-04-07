@@ -63,17 +63,17 @@
 
 ```bash
 # 한국어
-curl -sL https://raw.githubusercontent.com/user/god-in-hand/main/install.sh | bash -s -- --lang ko
+curl -sL https://raw.githubusercontent.com/songblaq/god-in-hand/main/install.sh | bash -s -- --lang ko
 
 # English
-curl -sL https://raw.githubusercontent.com/user/god-in-hand/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/songblaq/god-in-hand/main/install.sh | bash
 ```
 
 ### 수동 설치
 
 ```bash
 # 1. 저장소 클론
-git clone https://github.com/user/god-in-hand.git
+git clone https://github.com/songblaq/god-in-hand.git
 cd god-in-hand
 
 # 2. 설치 스크립트 실행

@@ -200,7 +200,7 @@ cat ~/.god-in-hand/logs/install-*.log
 ## Getting Help
 
 - OpenClaw community Discord: #android channel
-- Project issues: https://github.com/user/god-in-hand/issues
+- Project issues: https://github.com/songblaq/god-in-hand/issues
 - OpenClaw docs: https://docs.openclaw.com
 
 ---

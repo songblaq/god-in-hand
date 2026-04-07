@@ -4,7 +4,7 @@
 #  Local LLM + Agent Runtime + Skill System for Android (Termux)
 #
 #  Usage:
-#    curl -sL https://raw.githubusercontent.com/user/god-in-hand/main/install.sh | bash
+#    curl -sL https://raw.githubusercontent.com/songblaq/god-in-hand/main/install.sh | bash
 #    bash install.sh [OPTIONS]
 #
 #  Options:
@@ -17,7 +17,7 @@
 #    --no-color           Disable colored output
 #    --help               Show this help message
 #
-#  Docs: https://github.com/user/god-in-hand
+#  Docs: https://github.com/songblaq/god-in-hand
 # ============================================================================
 
 set -o pipefail
@@ -139,11 +139,11 @@ bootstrap_repo() {
         fi
 
         if command -v git &>/dev/null; then
-            git clone --depth 1 "https://github.com/user/god-in-hand.git" "$tmp_dir" 2>/dev/null
+            git clone --depth 1 "https://github.com/songblaq/god-in-hand.git" "$tmp_dir" 2>/dev/null
         else
             # Fallback: download tarball
             mkdir -p "$tmp_dir"
-            curl -sL "https://github.com/user/god-in-hand/archive/main.tar.gz" | tar -xz -C "$tmp_dir" --strip-components=1 2>/dev/null
+            curl -sL "https://github.com/songblaq/god-in-hand/archive/main.tar.gz" | tar -xz -C "$tmp_dir" --strip-components=1 2>/dev/null
         fi
 
         if [[ -f "${tmp_dir}/lib/detect.sh" ]]; then
@@ -757,8 +757,8 @@ main() {
     echo ""
     echo -e "  $(msg log_location)${CYAN}${GIH_LOG}${NC}"
     echo ""
-    echo "  Docs:  https://github.com/user/god-in-hand"
-    echo "  Issues: https://github.com/user/god-in-hand/issues"
+    echo "  Docs:  https://github.com/songblaq/god-in-hand"
+    echo "  Issues: https://github.com/songblaq/god-in-hand/issues"
     echo ""
 
     log "Installation complete. Role: ${DEVICE_ROLE}, Engine: ${ENGINE}"

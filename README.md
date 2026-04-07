@@ -63,17 +63,17 @@ Existing projects like OpenClaw-on-Android run the agent locally but call cloud 
 
 ```bash
 # English
-curl -sL https://raw.githubusercontent.com/user/god-in-hand/main/install.sh | bash
+curl -sL https://raw.githubusercontent.com/songblaq/god-in-hand/main/install.sh | bash
 
 # Korean / 한국어
-curl -sL https://raw.githubusercontent.com/user/god-in-hand/main/install.sh | bash -s -- --lang ko
+curl -sL https://raw.githubusercontent.com/songblaq/god-in-hand/main/install.sh | bash -s -- --lang ko
 ```
 
 ### Manual Install
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/user/god-in-hand.git
+git clone https://github.com/songblaq/god-in-hand.git
 cd god-in-hand
 
 # 2. Run the installer
