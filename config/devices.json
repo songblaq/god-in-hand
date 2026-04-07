@@ -1,0 +1,96 @@
+{
+  "devices": [
+    {
+      "id": "galaxy-s21",
+      "name": "Galaxy S21",
+      "ram_gb": 8,
+      "soc": "Snapdragon 888",
+      "os": "android",
+      "android_version": 14,
+      "usable_ram_gb": 4.0,
+      "recommended_role": "worker",
+      "notes": "Always-charging dedicated worker. Cron jobs & monitoring.",
+      "recommended_models": ["gemma4-e2b-q4", "qwen3-0.6b-q8"],
+      "thermal_profile": "moderate",
+      "battery_strategy": "always_charging"
+    },
+    {
+      "id": "galaxy-s26",
+      "name": "Galaxy S26",
+      "ram_gb": 12,
+      "soc": "Snapdragon 8 Elite Gen 5",
+      "os": "android",
+      "android_version": 16,
+      "usable_ram_gb": 6.0,
+      "recommended_role": "hub",
+      "notes": "Main hub running OpenClaw gateway + primary model serving.",
+      "recommended_models": ["gemma4-e4b-q4", "qwen3-0.6b-q8"],
+      "thermal_profile": "efficient",
+      "battery_strategy": "optimized"
+    },
+    {
+      "id": "galaxy-z-fold7",
+      "name": "Galaxy Z Fold7",
+      "ram_gb": 16,
+      "soc": "Snapdragon 8 Elite",
+      "os": "android",
+      "android_version": 16,
+      "usable_ram_gb": 8.0,
+      "recommended_role": "power",
+      "notes": "Power node for complex reasoning and multimodal tasks.",
+      "recommended_models": ["gemma4-e4b-q4", "qwen3.5-35b-a3b-q4"],
+      "thermal_profile": "high_performance",
+      "battery_strategy": "optimized"
+    },
+    {
+      "id": "iphone-15-pro",
+      "name": "iPhone 15 Pro",
+      "ram_gb": 8,
+      "soc": "A17 Pro",
+      "os": "ios",
+      "ios_version": 18,
+      "usable_ram_gb": 4.0,
+      "recommended_role": "remote",
+      "notes": "Remote node + lightweight local via ExecuTorch/Off Grid.",
+      "recommended_models": ["qwen3-0.6b-q8", "qwen3-1.7b-q4"],
+      "thermal_profile": "moderate",
+      "battery_strategy": "conservative"
+    },
+    {
+      "id": "iphone-16-pro",
+      "name": "iPhone 16 Pro",
+      "ram_gb": 8,
+      "soc": "A18 Pro",
+      "os": "ios",
+      "ios_version": 19,
+      "usable_ram_gb": 4.0,
+      "recommended_role": "remote",
+      "notes": "Remote node + lightweight local via ExecuTorch/Off Grid.",
+      "recommended_models": ["qwen3-0.6b-q8", "qwen3-1.7b-q4"],
+      "thermal_profile": "efficient",
+      "battery_strategy": "conservative"
+    }
+  ],
+  "roles": {
+    "hub": {
+      "description": "Main coordinator running OpenClaw gateway, query routing, and primary model serving",
+      "min_ram_gb": 10,
+      "services": ["ollama", "openclaw-gateway", "hub-dashboard"]
+    },
+    "worker": {
+      "description": "Dedicated background worker for cron jobs, monitoring, and lightweight inference",
+      "min_ram_gb": 6,
+      "services": ["ollama", "openclaw-node"]
+    },
+    "power": {
+      "description": "High-RAM node for complex reasoning, multimodal processing, and large model inference",
+      "min_ram_gb": 14,
+      "services": ["ollama", "openclaw-node"]
+    },
+    "remote": {
+      "description": "iOS device connecting to Android hub via network. Optional lightweight local model",
+      "min_ram_gb": 4,
+      "services": ["executorch-local", "remote-client"]
+    }
+  }
+}

@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🤲 God in Hand — Hub Dashboard</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --surface2: #232340;
+    --border: #2d2d50;
+    --text: #e0e0f0;
+    --text2: #8888aa;
+    --accent: #6c5ce7;
+    --accent2: #a29bfe;
+    --green: #00b894;
+    --yellow: #fdcb6e;
+    --red: #e17055;
+    --cyan: #74b9ff;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px;
+  }
+  .header {
+    text-align: center;
+    padding: 20px 0 12px;
+  }
+  .header h1 {
+    font-size: 1.5em;
+    background: linear-gradient(135deg, var(--accent2), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header p { color: var(--text2); font-size: 0.85em; margin-top: 4px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .card h2 {
+    font-size: 0.9em;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    display: inline-block;
+  }
+  .status-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.warn { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .status-dot.err { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .status-dot.off { background: #555; }
+
+  .metric {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88em;
+  }
+  .metric:last-child { border-bottom: none; }
+  .metric .label { color: var(--text2); }
+  .metric .value { font-weight: 600; }
+
+  .bar-bg {
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-top: 4px;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+  .bar-fill.green { background: var(--green); }
+  .bar-fill.yellow { background: var(--yellow); }
+  .bar-fill.red { background: var(--red); }
+
+  .device-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    background: var(--surface2);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+  .device-row .icon { font-size: 1.4em; }
+  .device-row .info { flex: 1; }
+  .device-row .name { font-weight: 600; font-size: 0.9em; }
+  .device-row .detail { color: var(--text2); font-size: 0.78em; }
+  .device-row .role {
+    font-size: 0.7em;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .role.hub { background: rgba(108,92,231,0.2); color: var(--accent2); }
+  .role.worker { background: rgba(0,184,148,0.2); color: var(--green); }
+  .role.power { background: rgba(116,185,255,0.2); color: var(--cyan); }
+  .role.remote { background: rgba(253,203,110,0.2); color: var(--yellow); }
+
+  .model-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    background: var(--surface2);
+    border-radius: 20px;
+    font-size: 0.78em;
+    margin: 2px 4px 2px 0;
+    border: 1px solid var(--border);
+  }
+  .model-tag.loaded { border-color: var(--green); color: var(--green); }
+
+  /* Chat area */
+  .chat-card { grid-column: 1 / -1; }
+  .chat-area {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+    margin-bottom: 12px;
+    font-size: 0.88em;
+  }
+  .chat-msg {
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    max-width: 85%;
+  }
+  .chat-msg.user {
+    background: var(--accent);
+    margin-left: auto;
+    text-align: right;
+  }
+  .chat-msg.assistant {
+    background: var(--border);
+  }
+  .chat-msg.system {
+    background: none;
+    color: var(--text2);
+    font-size: 0.82em;
+    text-align: center;
+    max-width: 100%;
+  }
+  .chat-input-row {
+    display: flex;
+    gap: 8px;
+  }
+  .chat-input-row input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 0.9em;
+    outline: none;
+  }
+  .chat-input-row input:focus { border-color: var(--accent); }
+  .chat-input-row button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9em;
+    transition: opacity 0.2s;
+  }
+  .chat-input-row button:hover { opacity: 0.85; }
+  .chat-input-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .settings-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .settings-row select, .settings-row input[type="text"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.82em;
+  }
+  .settings-row label { color: var(--text2); font-size: 0.82em; line-height: 2; }
+
+  .refresh-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    font-size: 1.2em;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(108,92,231,0.4);
+  }
+  .refresh-btn:hover { opacity: 0.85; }
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .footer {
+    text-align: center;
+    color: var(--text2);
+    font-size: 0.75em;
+    padding: 20px 0 10px;
+  }
+
+  @media (max-width: 640px) {
+    body { padding: 8px; }
+    .grid { grid-template-columns: 1fr; gap: 10px; }
+    .header h1 { font-size: 1.2em; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🤲 God in Hand</h1>
+  <p>On-device AI Agent Hub Dashboard</p>
+</div>
+
+<div class="grid">
+
+  <!-- System Status -->
+  <div class="card" id="card-system">
+    <h2><span class="status-dot off" id="sys-dot"></span> System</h2>
+    <div class="metric"><span class="label">Device</span><span class="value" id="sys-device">—</span></div>
+    <div class="metric"><span class="label">Role</span><span class="value" id="sys-role">—</span></div>
+    <div class="metric">
+      <span class="label">RAM</span>
+      <span class="value" id="sys-ram">—</span>
+    </div>
+    <div class="bar-bg"><div class="bar-fill green" id="ram-bar" style="width:0%"></div></div>
+    <div class="metric"><span class="label">Storage</span><span class="value" id="sys-storage">—</span></div>
+    <div class="metric"><span class="label">Temperature</span><span class="value" id="sys-temp">—</span></div>
+    <div class="metric"><span class="label">Battery</span><span class="value" id="sys-battery">—</span></div>
+    <div class="bar-bg"><div class="bar-fill green" id="batt-bar" style="width:0%"></div></div>
+  </div>
+
+  <!-- Services -->
+  <div class="card" id="card-services">
+    <h2>Services</h2>
+    <div class="metric">
+      <span class="label"><span class="status-dot off" id="ollama-dot"></span> Ollama</span>
+      <span class="value" id="svc-ollama">Checking...</span>
+    </div>
+    <div class="metric">
+      <span class="label"><span class="status-dot off" id="oc-dot"></span> OpenClaw</span>
+      <span class="value" id="svc-openclaw">Checking...</span>
+    </div>
+    <div class="metric">
+      <span class="label"><span class="status-dot off" id="model-dot"></span> Model Loaded</span>
+      <span class="value" id="svc-model">Checking...</span>
+    </div>
+    <div id="model-tags" style="margin-top: 8px;"></div>
+  </div>
+
+  <!-- Connected Devices -->
+  <div class="card" id="card-devices">
+    <h2>Connected Devices</h2>
+    <div id="device-list">
+      <div class="device-row">
+        <div class="icon">📱</div>
+        <div class="info">
+          <div class="name" id="local-device-name">This Device</div>
+          <div class="detail" id="local-device-detail">Detecting...</div>
+        </div>
+        <span class="role hub" id="local-device-role">—</span>
+      </div>
+    </div>
+    <p style="color: var(--text2); font-size: 0.78em; margin-top: 8px;">
+      Add devices: <code>openclaw node pair</code>
+    </p>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="card">
+    <h2>Quick Actions</h2>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+      <button onclick="runAction('health')" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.82em;">🏥 Health Check</button>
+      <button onclick="runAction('restart-ollama')" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.82em;">🔄 Restart Ollama</button>
+      <button onclick="runAction('models')" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.82em;">📋 List Models</button>
+      <button onclick="runAction('doctor')" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.82em;">🩺 OpenClaw Doctor</button>
+    </div>
+    <pre id="action-output" style="margin-top:10px;background:var(--surface2);border-radius:8px;padding:10px;font-size:0.78em;color:var(--text2);max-height:200px;overflow-y:auto;display:none;"></pre>
+  </div>
+
+  <!-- Chat Test -->
+  <div class="card chat-card">
+    <h2>💬 Chat Test</h2>
+    <div class="settings-row">
+      <label>Endpoint:</label>
+      <input type="text" id="chat-endpoint" value="http://localhost:11434" style="flex:1;">
+      <label>Model:</label>
+      <select id="chat-model">
+        <option value="">Auto</option>
+        <option value="gemma4:e2b">gemma4:e2b</option>
+        <option value="gemma4:e4b">gemma4:e4b</option>
+        <option value="qwen3:0.6b">qwen3:0.6b</option>
+        <option value="qwen3:4b">qwen3:4b</option>
+      </select>
+    </div>
+    <div class="chat-area" id="chat-area">
+      <div class="chat-msg system">Type a message to test your local LLM</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button onclick="sendChat()" id="chat-send-btn">Send</button>
+    </div>
+  </div>
+
+</div>
+
+<button class="refresh-btn" onclick="refreshAll()" title="Refresh">🔄</button>
+
+<div class="footer">
+  God in Hand v0.1.0 — On-device AI Agent System
+</div>
+
+<script>
+// ─── Configuration ───
+const CONFIG = {
+  ollamaBase: 'http://localhost:11434',
+  openclawBase: 'http://localhost:3000',
+  healthEndpoint: null, // will be set by detect
+  pollInterval: 15000, // 15s
+};
+
+// ─── State ───
+let state = {
+  system: {},
+  services: { ollama: false, openclaw: false, model: false },
+  models: [],
+  chatHistory: [],
+};
+
+// ─── DOM Helpers ───
+const $ = id => document.getElementById(id);
+const setDot = (id, status) => {
+  const dot = $(id);
+  if (dot) { dot.className = 'status-dot ' + status; }
+};
+
+// ─── Status Polling ───
+async function checkOllama() {
+  try {
+    const r = await fetch(CONFIG.ollamaBase + '/api/version', { signal: AbortSignal.timeout(5000) });
+    if (r.ok) {
+      const d = await r.json();
+      $('svc-ollama').textContent = 'Running (v' + (d.version || '?') + ')';
+      setDot('ollama-dot', 'ok');
+      state.services.ollama = true;
+      return true;
+    }
+  } catch(e) {}
+  $('svc-ollama').textContent = 'Not running';
+  setDot('ollama-dot', 'err');
+  state.services.ollama = false;
+  return false;
+}
+
+async function checkModels() {
+  try {
+    const r = await fetch(CONFIG.ollamaBase + '/api/tags', { signal: AbortSignal.timeout(5000) });
+    if (r.ok) {
+      const d = await r.json();
+      state.models = (d.models || []).map(m => m.name);
+      if (state.models.length > 0) {
+        $('svc-model').textContent = state.models.length + ' model(s)';
+        setDot('model-dot', 'ok');
+        state.services.model = true;
+        // Render model tags
+        $('model-tags').innerHTML = state.models.map(m =>
+          '<span class="model-tag loaded">' + m + '</span>'
+        ).join('');
+        // Update chat model selector
+        const select = $('chat-model');
+        const existing = new Set([...select.options].map(o => o.value));
+        state.models.forEach(m => {
+          if (!existing.has(m)) {
+            const opt = document.createElement('option');
+            opt.value = m; opt.textContent = m;
+            select.appendChild(opt);
+          }
+        });
+        return;
+      }
+    }
+  } catch(e) {}
+  $('svc-model').textContent = 'No models';
+  setDot('model-dot', 'warn');
+  $('model-tags').innerHTML = '';
+  state.services.model = false;
+}
+
+async function checkOpenClaw() {
+  try {
+    const r = await fetch(CONFIG.openclawBase + '/health', { signal: AbortSignal.timeout(5000) });
+    if (r.ok) {
+      $('svc-openclaw').textContent = 'Running';
+      setDot('oc-dot', 'ok');
+      state.services.openclaw = true;
+      return;
+    }
+  } catch(e) {}
+  // Try root
+  try {
+    const r = await fetch(CONFIG.openclawBase + '/', { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      $('svc-openclaw').textContent = 'Running';
+      setDot('oc-dot', 'ok');
+      state.services.openclaw = true;
+      return;
+    }
+  } catch(e) {}
+  $('svc-openclaw').textContent = 'Not running';
+  setDot('oc-dot', 'err');
+  state.services.openclaw = false;
+}
+
+// ─── System Status (reads from health.sh JSON output) ───
+async function loadSystemStatus() {
+  // Try to load from a local status endpoint (if health.sh is running as a service)
+  try {
+    const r = await fetch('/api/status', { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      const d = await r.json();
+      updateSystemCard(d);
+      return;
+    }
+  } catch(e) {}
+
+  // Fallback: use static/detected values
+  $('sys-device').textContent = 'Android Device';
+  $('sys-role').textContent = '—';
+  setDot('sys-dot', state.services.ollama ? 'ok' : 'warn');
+}
+
+function updateSystemCard(d) {
+  if (d.device) {
+    $('sys-device').textContent = (d.device.manufacturer || '') + ' ' + (d.device.model || '');
+    $('local-device-name').textContent = (d.device.manufacturer || '') + ' ' + (d.device.model || '');
+  }
+  if (d.system) {
+    const ramPct = d.system.ram_total_mb > 0
+      ? Math.round((d.system.ram_total_mb - d.system.ram_available_mb) / d.system.ram_total_mb * 100)
+      : 0;
+    $('sys-ram').textContent = d.system.ram_available_mb + 'MB / ' + d.system.ram_total_mb + 'MB';
+    const ramBar = $('ram-bar');
+    ramBar.style.width = ramPct + '%';
+    ramBar.className = 'bar-fill ' + (ramPct > 90 ? 'red' : ramPct > 75 ? 'yellow' : 'green');
+
+    $('sys-storage').textContent = (d.system.storage_available_gb || '?') + ' GB free';
+    $('sys-temp').textContent = d.system.temperature_c >= 0 ? d.system.temperature_c + '°C' : '—';
+
+    if (d.system.battery_level >= 0) {
+      const bl = d.system.battery_level;
+      const charging = d.system.battery_charging === 'yes' ? ' ⚡' : '';
+      $('sys-battery').textContent = bl + '%' + charging;
+      const battBar = $('batt-bar');
+      battBar.style.width = bl + '%';
+      battBar.className = 'bar-fill ' + (bl < 15 ? 'red' : bl < 30 ? 'yellow' : 'green');
+    }
+  }
+  const allOk = d.services && d.services.ollama && d.services.openclaw;
+  setDot('sys-dot', allOk ? 'ok' : 'warn');
+}
+
+// ─── Chat ───
+async function sendChat() {
+  const input = $('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  const area = $('chat-area');
+  const btn = $('chat-send-btn');
+
+  // Add user message
+  area.innerHTML += '<div class="chat-msg user">' + escHtml(msg) + '</div>';
+  input.value = '';
+  btn.disabled = true;
+  area.scrollTop = area.scrollHeight;
+
+  // Prepare request
+  const endpoint = $('chat-endpoint').value || CONFIG.ollamaBase;
+  const model = $('chat-model').value || (state.models[0] || 'gemma4:e2b');
+  const url = endpoint + '/v1/chat/completions';
+
+  state.chatHistory.push({ role: 'user', content: msg });
+
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: model,
+        messages: state.chatHistory.slice(-10), // last 10 messages
+        max_tokens: 512,
+        temperature: 0.7,
+      }),
+      signal: AbortSignal.timeout(60000),
+    });
+
+    if (r.ok) {
+      const d = await r.json();
+      const reply = d.choices?.[0]?.message?.content || '(empty response)';
+      state.chatHistory.push({ role: 'assistant', content: reply });
+      area.innerHTML += '<div class="chat-msg assistant">' + escHtml(reply) + '</div>';
+    } else {
+      const errText = await r.text();
+      area.innerHTML += '<div class="chat-msg system">Error: ' + r.status + ' — ' + escHtml(errText.slice(0, 200)) + '</div>';
+    }
+  } catch(e) {
+    area.innerHTML += '<div class="chat-msg system">Connection error: ' + escHtml(e.message) + '</div>';
+  }
+
+  btn.disabled = false;
+  area.scrollTop = area.scrollHeight;
+  input.focus();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Quick Actions (UI only, actual commands need a backend) ───
+function runAction(action) {
+  const out = $('action-output');
+  out.style.display = 'block';
+  out.textContent = 'Running: ' + action + '...\n';
+
+  switch(action) {
+    case 'health':
+      out.textContent += 'Ollama: ' + (state.services.ollama ? '✓ Running' : '✗ Not running') + '\n';
+      out.textContent += 'OpenClaw: ' + (state.services.openclaw ? '✓ Running' : '✗ Not running') + '\n';
+      out.textContent += 'Models: ' + (state.models.length > 0 ? state.models.join(', ') : 'None') + '\n';
+      out.textContent += '\nFor full health check, run in Termux:\n  bash ~/.god-in-hand/repo/lib/health.sh';
+      break;
+    case 'restart-ollama':
+      out.textContent += 'To restart Ollama, run in Termux:\n  pkill ollama; sleep 2; ollama serve &';
+      break;
+    case 'models':
+      if (state.models.length > 0) {
+        out.textContent += 'Loaded models:\n' + state.models.map(m => '  • ' + m).join('\n');
+      } else {
+        out.textContent += 'No models loaded.\nInstall: ollama pull gemma4:e2b';
+      }
+      break;
+    case 'doctor':
+      out.textContent += 'Run in Termux:\n  openclaw doctor';
+      break;
+  }
+}
+
+// ─── Refresh All ───
+async function refreshAll() {
+  const btn = document.querySelector('.refresh-btn');
+  btn.classList.add('spin');
+
+  await Promise.allSettled([
+    checkOllama(),
+    checkModels(),
+    checkOpenClaw(),
+    loadSystemStatus(),
+  ]);
+
+  btn.classList.remove('spin');
+}
+
+// ─── Init ───
+refreshAll();
+setInterval(refreshAll, CONFIG.pollInterval);
+</script>
+</body>
+</html>
