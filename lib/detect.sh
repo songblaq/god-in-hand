@@ -161,7 +161,7 @@ detect_battery() {
     BATTERY_LEVEL=-1
     BATTERY_CHARGING="unknown"
 
-    # Method 1: Termux API
+    # Method 1: Termux API (most reliable on Android)
     if command -v termux-battery-status &>/dev/null; then
         local batt_json
         batt_json=$(termux-battery-status 2>/dev/null)
@@ -177,15 +177,51 @@ detect_battery() {
         fi
     fi
 
-    # Method 2: sysfs
-    if [[ $BATTERY_LEVEL -lt 0 && -f /sys/class/power_supply/battery/capacity ]]; then
-        BATTERY_LEVEL=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo "-1")
-        local status
-        status=$(cat /sys/class/power_supply/battery/status 2>/dev/null || echo "")
-        if [[ "$status" == "Charging" || "$status" == "Full" ]]; then
-            BATTERY_CHARGING="yes"
-        else
-            BATTERY_CHARGING="no"
+    # Method 2: sysfs — try multiple power_supply paths
+    # Samsung Exynos, Qualcomm, MediaTek devices use different paths
+    if [[ $BATTERY_LEVEL -lt 0 ]]; then
+        local batt_paths=(
+            "/sys/class/power_supply/battery/capacity"
+            "/sys/class/power_supply/BAT0/capacity"
+            "/sys/class/power_supply/BAT1/capacity"
+            "/sys/class/power_supply/bms/capacity"
+            "/sys/class/power_supply/max170xx_battery/capacity"
+        )
+        local batt_path
+        for batt_path in "${batt_paths[@]}"; do
+            if [[ -f "$batt_path" ]]; then
+                BATTERY_LEVEL=$(cat "$batt_path" 2>/dev/null || echo "-1")
+                local status_path="${batt_path%/capacity}/status"
+                local status
+                status=$(cat "$status_path" 2>/dev/null || echo "")
+                if [[ "$status" == "Charging" || "$status" == "Full" ]]; then
+                    BATTERY_CHARGING="yes"
+                else
+                    BATTERY_CHARGING="no"
+                fi
+                break
+            fi
+        done
+    fi
+
+    # Method 3: dumpsys battery (Android fallback, works on most devices)
+    if [[ $BATTERY_LEVEL -lt 0 ]] && command -v dumpsys &>/dev/null; then
+        local dumpsys_out
+        dumpsys_out=$(dumpsys battery 2>/dev/null || echo "")
+        if [[ -n "$dumpsys_out" ]]; then
+            local level
+            level=$(echo "$dumpsys_out" | grep -i "level:" | grep -oE '[0-9]+' | head -1)
+            if [[ -n "$level" ]]; then
+                BATTERY_LEVEL="$level"
+                local ds_status
+                ds_status=$(echo "$dumpsys_out" | grep -i "status:" | grep -oE '[0-9]+' | head -1)
+                # Android BatteryManager: 2=CHARGING, 5=FULL
+                if [[ "$ds_status" == "2" || "$ds_status" == "5" ]]; then
+                    BATTERY_CHARGING="yes"
+                else
+                    BATTERY_CHARGING="no"
+                fi
+            fi
         fi
     fi
 }
@@ -239,14 +275,49 @@ detect_soc() {
 detect_thermal() {
     THERMAL_TEMP_C=-1
 
-    # Try thermal_zone0 (usually CPU)
-    if [[ -f /sys/class/thermal/thermal_zone0/temp ]]; then
-        local raw
-        raw=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo "0")
-        if [[ $raw -gt 1000 ]]; then
-            THERMAL_TEMP_C=$(( raw / 1000 ))
-        else
-            THERMAL_TEMP_C=$raw
+    # Try multiple thermal zones — different SoCs (Exynos, Snapdragon, MediaTek)
+    # use different zone numbering for CPU temperature
+    local zone
+    for zone in /sys/class/thermal/thermal_zone*/temp; do
+        if [[ -f "$zone" ]]; then
+            local raw
+            raw=$(cat "$zone" 2>/dev/null || echo "0")
+            if [[ "$raw" -gt 0 ]]; then
+                if [[ $raw -gt 1000 ]]; then
+                    THERMAL_TEMP_C=$(( raw / 1000 ))
+                else
+                    THERMAL_TEMP_C=$raw
+                fi
+                break
+            fi
+        fi
+    done
+
+    # Fallback: hwmon interface (some devices expose temp here)
+    if [[ $THERMAL_TEMP_C -lt 0 ]]; then
+        local hwmon_path
+        for hwmon_path in /sys/class/hwmon/hwmon*/temp1_input; do
+            if [[ -f "$hwmon_path" ]]; then
+                local raw
+                raw=$(cat "$hwmon_path" 2>/dev/null || echo "0")
+                if [[ "$raw" -gt 0 ]]; then
+                    if [[ $raw -gt 1000 ]]; then
+                        THERMAL_TEMP_C=$(( raw / 1000 ))
+                    else
+                        THERMAL_TEMP_C=$raw
+                    fi
+                    break
+                fi
+            fi
+        done
+    fi
+
+    # Fallback: dumpsys battery temperature (in tenths of degree C)
+    if [[ $THERMAL_TEMP_C -lt 0 ]] && command -v dumpsys &>/dev/null; then
+        local temp_raw
+        temp_raw=$(dumpsys battery 2>/dev/null | grep -i "temperature:" | grep -oE '[0-9]+' | head -1)
+        if [[ -n "$temp_raw" && "$temp_raw" -gt 0 ]]; then
+            THERMAL_TEMP_C=$(( temp_raw / 10 ))
         fi
     fi
 }

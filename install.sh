@@ -468,19 +468,35 @@ phase3_install() {
     fi
 
     # --- pkg update ---
-    print_info "$(msg updating_pkg)"
+    # CRITICAL: Set DEBIAN_FRONTEND to prevent dpkg post-install scripts
+    # from hanging on interactive prompts in piped/non-interactive mode
+    export DEBIAN_FRONTEND=noninteractive
 
     # CRITICAL: pkg/apt reads from stdin — must redirect from /dev/null
     # when running via "curl | bash" to prevent consuming the script stream
     print_info "$(msg updating_pkg)"
-    if ! pkg update -y </dev/null >> "$GIH_LOG" 2>&1; then
-        print_warn "Default mirror failed. Trying alternative..."
+    local pkg_output
+    if ! pkg_output=$(pkg update -y </dev/null 2>&1); then
+        log "pkg update failed: ${pkg_output}"
+        # Check if repos are reachable at all
+        if echo "$pkg_output" | grep -qiE "unable to locate|failed to fetch|repository.*not found"; then
+            print_warn "Package repository unreachable. Trying mirror change..."
+        else
+            print_warn "Default mirror failed. Trying alternative..."
+        fi
         if command -v termux-change-repo &>/dev/null; then
             termux-change-repo </dev/null 2>/dev/null || true
         fi
-        if ! pkg update -y </dev/null >> "$GIH_LOG" 2>&1; then
-            die "Failed to update packages. Check network and mirrors."
+        # Retry with apt-get directly (pkg is a wrapper that may behave differently)
+        if ! apt-get update -y </dev/null >> "$GIH_LOG" 2>&1; then
+            if ! pkg update -y </dev/null >> "$GIH_LOG" 2>&1; then
+                print_fail "Failed to update packages. Last error:"
+                echo "    $(echo "$pkg_output" | tail -3 | head -1)"
+                die "Package update failed. Run 'termux-change-repo' manually, then retry."
+            fi
         fi
+    else
+        echo "$pkg_output" >> "$GIH_LOG"
     fi
     pkg upgrade -y </dev/null >> "$GIH_LOG" 2>&1
     print_ok "Packages updated"
@@ -489,14 +505,26 @@ phase3_install() {
     print_info "$(msg installing_deps)"
     local deps="curl wget git nodejs-lts python build-essential cmake proot-distro"
     log "Installing all deps in one batch: $deps"
-    if ! pkg install -y $deps </dev/null >> "$GIH_LOG" 2>&1; then
+    local install_output
+    if ! install_output=$(pkg install -y $deps </dev/null 2>&1); then
+        log "Batch install failed: ${install_output}"
         print_warn "Batch install had errors. Trying individual packages..."
+        # Show the actual error to help diagnose
+        local err_line
+        err_line=$(echo "$install_output" | grep -iE "error|unable|failed" | head -1)
+        if [[ -n "$err_line" ]]; then
+            print_info "Error: ${err_line}"
+        fi
         for dep in $deps; do
             if ! command -v "$dep" &>/dev/null && ! dpkg -s "$dep" >/dev/null 2>&1; then
                 log "Installing individually: $dep"
-                pkg install -y "$dep" </dev/null >> "$GIH_LOG" 2>&1 || print_warn "Failed to install: $dep"
+                if ! apt-get install -y "$dep" </dev/null >> "$GIH_LOG" 2>&1; then
+                    pkg install -y "$dep" </dev/null >> "$GIH_LOG" 2>&1 || print_warn "Failed to install: $dep"
+                fi
             fi
         done
+    else
+        echo "$install_output" >> "$GIH_LOG"
     fi
     print_ok "Dependencies installed"
 
