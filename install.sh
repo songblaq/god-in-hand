@@ -47,7 +47,7 @@ fi
 GIH_HOME="${HOME}/.god-in-hand"
 GIH_LOG_DIR="${GIH_HOME}/logs"
 GIH_LOG="${GIH_LOG_DIR}/install-$(date +%Y%m%d-%H%M%S).log"
-GIH_VERSION="0.1.0"
+GIH_VERSION="0.2.0"
 
 # ---------------------------------------------------------------------------
 # Minimal color support (before lib loads)
