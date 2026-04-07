@@ -20,6 +20,8 @@
 #  Docs: https://github.com/songblaq/god-in-hand
 # ============================================================================
 
+# SECURITY NOTE [MEDIUM]: Consider adding 'set -u' to catch unset variable usage.
+# 'set -e' omitted intentionally (installer needs to handle partial failures gracefully).
 set -o pipefail
 
 # ---------------------------------------------------------------------------
@@ -90,7 +92,9 @@ done
 # ---------------------------------------------------------------------------
 # Core utility functions
 # ---------------------------------------------------------------------------
+# SECURITY NOTE [MEDIUM]: Log files may contain system info. Restrict permissions.
 mkdir -p "$GIH_LOG_DIR"
+chmod 700 "$GIH_LOG_DIR" 2>/dev/null || true
 
 log() {
     local ts
@@ -129,7 +133,8 @@ read_input() {
     local var_name="$1"
     if $PIPED_INSTALL; then
         # shellcheck disable=SC2229  # Dynamic variable assignment via indirect read
-        read -r "$var_name" <&3 || eval "$var_name=''"
+        # SECURITY: Use printf -v for safe indirect assignment (eval would allow injection)
+        read -r "$var_name" <&3 || printf -v "$var_name" ''
     else
         # shellcheck disable=SC2229
         read -r "$var_name"
@@ -166,6 +171,9 @@ bootstrap_repo() {
             rm -rf "$tmp_dir"
         fi
 
+        # SECURITY NOTE [MEDIUM]: No integrity verification (checksum/signature) on
+        # downloaded repo. HTTPS provides transport security but not content verification.
+        # Consider verifying a known commit hash after clone.
         if command -v git &>/dev/null; then
             git clone --depth 1 "https://github.com/songblaq/god-in-hand.git" "$tmp_dir" 2>/dev/null
         else
@@ -524,7 +532,9 @@ phase3_install() {
         ollama)
             print_info "Installing Ollama..."
             if ! command -v ollama &>/dev/null; then
-                # Ollama install for Termux
+                # SECURITY NOTE [HIGH]: curl|bash pattern for Ollama install has no checksum
+                # verification. A compromised CDN or MITM attack (despite HTTPS) could
+                # inject arbitrary code. Consider pinning a known-good version hash.
                 if curl -fsSL https://ollama.com/install.sh 2>/dev/null | bash </dev/null >> "$GIH_LOG" 2>&1; then
                     print_ok "Ollama installed"
                 else
@@ -685,14 +695,18 @@ phase5_hub() {
     fi
 
     # Save role config
+    # SECURITY: Sanitize values that may contain special chars (e.g., device model from getprop)
+    local safe_device_model="${DEVICE_MODEL//\"/\\\"}"
+    local safe_device_role="${DEVICE_ROLE//\"/\\\"}"
+    local safe_engine="${ENGINE//\"/\\\"}"
     mkdir -p "$GIH_HOME"
     cat > "${GIH_HOME}/config.json" <<CFGEOF
 {
   "version": "${GIH_VERSION}",
-  "device_role": "${DEVICE_ROLE}",
-  "engine": "${ENGINE}",
-  "total_ram_gb": ${TOTAL_RAM_GB},
-  "device_model": "${DEVICE_MODEL}",
+  "device_role": "${safe_device_role}",
+  "engine": "${safe_engine}",
+  "total_ram_gb": ${TOTAL_RAM_GB:-0},
+  "device_model": "${safe_device_model}",
   "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "language": "${GIH_LANG}"
 }

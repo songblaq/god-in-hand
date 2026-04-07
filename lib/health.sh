@@ -343,12 +343,18 @@ generate_status_json() {
     local model_ok=false
     check_model_loaded >/dev/null 2>&1 && model_ok=true
 
+    # SECURITY NOTE [MEDIUM]: DEVICE_MODEL/DEVICE_MANUFACTURER from getprop may
+    # contain special characters. Sanitize double quotes for valid JSON.
+    local safe_model="${DEVICE_MODEL:-unknown}"
+    safe_model="${safe_model//\"/\\\"}"
+    local safe_manufacturer="${DEVICE_MANUFACTURER:-unknown}"
+    safe_manufacturer="${safe_manufacturer//\"/\\\"}"
     cat <<STATUSJSON
 {
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "device": {
-    "model": "${DEVICE_MODEL:-unknown}",
-    "manufacturer": "${DEVICE_MANUFACTURER:-unknown}"
+    "model": "${safe_model}",
+    "manufacturer": "${safe_manufacturer}"
   },
   "system": {
     "ram_total_mb": ${TOTAL_RAM_MB:-0},

@@ -404,7 +404,7 @@ async function checkModels() {
         state.services.model = true;
         // Render model tags
         $('model-tags').innerHTML = state.models.map(m =>
-          '<span class="model-tag loaded">' + m + '</span>'
+          '<span class="model-tag loaded">' + escHtml(m) + '</span>'
         ).join('');
         // Update chat model selector
         const select = $('chat-model');

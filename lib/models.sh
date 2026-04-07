@@ -55,15 +55,25 @@ get_model_info() {
         return 1
     fi
 
+    # SECURITY: Validate model_id to prevent injection in Python/grep paths
+    # Only allow alphanumeric, hyphens, dots, and underscores
+    if [[ ! "$model_id" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        return 1
+    fi
+
     # Use python for JSON parsing if available, else use grep heuristics
     if command -v python3 &>/dev/null; then
         local info
+        # SECURITY: Pass model_id and file path as arguments instead of interpolating
+        # into Python code to prevent code injection
         info=$(python3 -c "
 import json, sys
-with open('${MODELS_JSON}') as f:
+model_id = sys.argv[1]
+json_path = sys.argv[2]
+with open(json_path) as f:
     data = json.load(f)
 for m in data['models']:
-    if m['id'] == '${model_id}':
+    if m['id'] == model_id:
         print(m.get('name',''))
         print(m.get('ram_required_gb',''))
         print(m.get('ollama_tag',''))
@@ -71,7 +81,7 @@ for m in data['models']:
         print(m.get('hf_file',''))
         sys.exit(0)
 sys.exit(1)
-" 2>/dev/null)
+" "$model_id" "$MODELS_JSON" 2>/dev/null)
         if [[ $? -eq 0 ]]; then
             MODEL_NAME=$(echo "$info" | sed -n '1p')
             MODEL_RAM=$(echo "$info" | sed -n '2p')
