@@ -1,0 +1,2 @@
+# Variables set in library modules are used by sourcing scripts
+disable=SC2034

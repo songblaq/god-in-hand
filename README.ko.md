@@ -129,6 +129,39 @@ iOS에서는 Termux를 사용할 수 없으므로 이중 전략을 사용합니�
 - **4GB+ RAM** (8GB+ 권장)
 - **10GB+ 여유 저장 공간**
 
+## 테스트
+
+God in Hand는 [BATS](https://github.com/bats-core/bats-core) (Bash Automated Testing System)를 사용하여 테스트합니다.
+
+### 테스트 실행
+
+```bash
+# BATS 설치 (macOS)
+brew install bats-core
+
+# BATS 설치 (Termux)
+pkg install bats
+
+# 전체 테스트 실행
+bats tests/unit/
+
+# 모듈별 테스트 실행
+bats tests/unit/test_detect.bats
+bats tests/unit/test_i18n.bats
+bats tests/unit/test_models.bats
+bats tests/unit/test_health.bats
+```
+
+### 테스트 구조
+
+```
+tests/
+  unit/          # 모듈별 단위 테스트
+  helpers/       # 공통 설정 및 목(mock)
+  fixtures/      # 테스트 데이터 파일
+  lib/           # BATS 헬퍼 라이브러리 (vendored)
+```
+
 ## 주의 사항
 
 - Samsung One UI가 백그라운드 앱을 강제 종료합니다 — Termux 배터리 최적화 해제 필수

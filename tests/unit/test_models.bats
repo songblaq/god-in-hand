@@ -152,3 +152,70 @@ teardown() {
     [[ "$MODEL_HF_REPO" == "unsloth/gemma-4-E2B-it-GGUF" ]]
     [[ "$MODEL_HF_FILE" == "gemma-4-E2B-it-Q4_K_M.gguf" ]]
 }
+
+# ---------------------------------------------------------------------------
+# print_model_recommendation — Display recommended models
+# ---------------------------------------------------------------------------
+
+@test "characterize_models_print_recommendation_8gb: displays model list" {
+    run print_model_recommendation 8
+    assert_success
+    assert_output --partial "Recommended Models"
+    assert_output --partial "8GB RAM"
+}
+
+@test "characterize_models_print_recommendation_8gb: shows primary tag" {
+    run print_model_recommendation 8
+    assert_success
+    assert_output --partial "[primary]"
+}
+
+@test "characterize_models_print_recommendation_8gb: shows router tag" {
+    run print_model_recommendation 8
+    assert_success
+    assert_output --partial "[router]"
+}
+
+@test "characterize_models_print_recommendation_14gb: shows power tier models" {
+    run print_model_recommendation 14
+    assert_success
+    assert_output --partial "Recommended Models"
+    assert_output --partial "14GB RAM"
+    assert_output --partial "ollama pull"
+}
+
+@test "characterize_models_print_recommendation_3gb: shows minimal tier" {
+    run print_model_recommendation 3
+    assert_success
+    assert_output --partial "Qwen3 0.6B"
+}
+
+# ---------------------------------------------------------------------------
+# list_loaded_models — List models in Ollama
+# ---------------------------------------------------------------------------
+
+@test "characterize_models_list_loaded: shows ollama list output" {
+    mock_ollama "0.27.0"
+    run list_loaded_models
+    assert_success
+    assert_output --partial "Loaded models:"
+    assert_output --partial "NAME"
+}
+
+@test "characterize_models_list_loaded: shows not running when ollama fails" {
+    local bin_dir="${TEST_TEMP_DIR}/bin"
+    mkdir -p "$bin_dir"
+    cat > "${bin_dir}/ollama" << 'SCRIPT'
+#!/usr/bin/env bash
+if [[ "$1" == "list" ]]; then
+    echo "Error: could not connect" >&2
+    return 1
+fi
+SCRIPT
+    chmod +x "${bin_dir}/ollama"
+    export PATH="${bin_dir}:${PATH}"
+
+    run list_loaded_models
+    assert_success
+    assert_output --partial "Loaded models:"
+}

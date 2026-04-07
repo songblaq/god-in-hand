@@ -78,7 +78,7 @@ while [[ $# -gt 0 ]]; do
         --device-role) DEVICE_ROLE="$2"; shift 2 ;;
         --engine)      ENGINE="$2"; shift 2 ;;
         --model)       SPECIFIC_MODEL="$2"; shift 2 ;;
-        --no-color)    NO_COLOR=true; RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; BOLD=''; NC=''; shift ;;
+        --no-color)    NO_COLOR=true; RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; BOLD=''; NC=''; shift ;;  # NO_COLOR convention
         --help|-h)
             head -25 "$0" | tail -18
             exit 0
@@ -128,8 +128,10 @@ ask_yn() {
 read_input() {
     local var_name="$1"
     if $PIPED_INSTALL; then
+        # shellcheck disable=SC2229  # Dynamic variable assignment via indirect read
         read -r "$var_name" <&3 || eval "$var_name=''"
     else
+        # shellcheck disable=SC2229
         read -r "$var_name"
     fi
 }
@@ -340,6 +342,7 @@ phase1_existing() {
         print_info "$(msg found_openclaw) (${OPENCLAW_VERSION})"
         echo -ne "  $(msg openclaw_action) "
         read_input oc_choice
+        # shellcheck disable=SC2154  # oc_choice set via read_input indirect assignment
         case "${oc_choice,,}" in
             u|update)
                 log "User chose to update OpenClaw"
@@ -559,7 +562,7 @@ phase3_install() {
             fi
             cd "$llamacpp_dir" || die "Failed to enter llama.cpp directory"
             cmake -B build >> "$GIH_LOG" 2>&1
-            cmake --build build --config Release -j$(nproc) >> "$GIH_LOG" 2>&1
+            cmake --build build --config Release -j"$(nproc)" >> "$GIH_LOG" 2>&1
             cd - >/dev/null || true
 
             if [[ -f "${llamacpp_dir}/build/bin/llama-server" ]]; then
@@ -777,7 +780,7 @@ main() {
     # --- Final summary ---
     echo ""
     echo -e "${BOLD}${GREEN}════════════════════════════════════════${NC}"
-    echo -e "${BOLD}${GREEN}  $(msg done)${NC}"
+    echo -e "${BOLD}${GREEN}  $(msg "done")${NC}"
     echo -e "${BOLD}${GREEN}════════════════════════════════════════${NC}"
     echo ""
     echo "  Quick start:"

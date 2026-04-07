@@ -163,6 +163,39 @@ See [docs/ios-setup.md](docs/ios-setup.md) for detailed instructions.
 - **4GB+ RAM** (8GB+ recommended)
 - **10GB+ free storage**
 
+## Testing
+
+God in Hand uses [BATS](https://github.com/bats-core/bats-core) (Bash Automated Testing System) for testing.
+
+### Running Tests
+
+```bash
+# Install BATS (macOS)
+brew install bats-core
+
+# Install BATS (Termux)
+pkg install bats
+
+# Run all tests
+bats tests/unit/
+
+# Run specific module tests
+bats tests/unit/test_detect.bats
+bats tests/unit/test_i18n.bats
+bats tests/unit/test_models.bats
+bats tests/unit/test_health.bats
+```
+
+### Test Structure
+
+```
+tests/
+  unit/          # Unit tests per module
+  helpers/       # Shared test setup and mocks
+  fixtures/      # Test data files
+  lib/           # BATS helper libraries (vendored)
+```
+
 ## Known Issues & Precautions
 
 - Samsung One UI aggressively kills background apps — disable battery optimization for Termux

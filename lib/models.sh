@@ -148,6 +148,7 @@ download_model_ollama() {
     if ! curl -sf "http://localhost:11434/api/version" >/dev/null 2>&1; then
         echo "Starting Ollama server..."
         ollama serve &>/dev/null &
+        # shellcheck disable=SC2034
         local ollama_pid=$!
         sleep 3
 

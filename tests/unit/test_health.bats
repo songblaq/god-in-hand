@@ -276,3 +276,254 @@ teardown() {
     run check_storage_space
     [[ "$status" -eq 2 ]]
 }
+
+# ---------------------------------------------------------------------------
+# check_ollama_status — Ollama process and API check
+# Returns: 0 = OK, 1 = not running, 2 = running but unhealthy
+# ---------------------------------------------------------------------------
+
+@test "characterize_health_check_ollama_not_running: returns 1" {
+    init_health_log
+    pgrep() { return 1; }
+    export -f pgrep
+
+    run check_ollama_status
+    [[ "$status" -eq 1 ]]
+
+    unset -f pgrep
+}
+
+@test "characterize_health_check_ollama_running_healthy: returns 0" {
+    init_health_log
+    pgrep() { return 0; }
+    export -f pgrep
+    curl() { echo '{"version":"0.27.0"}'; return 0; }
+    export -f curl
+
+    run check_ollama_status
+    assert_success
+
+    unset -f pgrep
+    unset -f curl
+}
+
+@test "characterize_health_check_ollama_running_unhealthy: returns 2" {
+    init_health_log
+    pgrep() { return 0; }
+    export -f pgrep
+    curl() { return 1; }
+    export -f curl
+
+    run check_ollama_status
+    [[ "$status" -eq 2 ]]
+
+    unset -f pgrep
+    unset -f curl
+}
+
+# ---------------------------------------------------------------------------
+# check_openclaw_status — OpenClaw process and port check
+# Returns: 0 = OK, 1 = not running, 2 = running but unhealthy
+# ---------------------------------------------------------------------------
+
+@test "characterize_health_check_openclaw_not_running: returns 1" {
+    init_health_log
+    pgrep() { return 1; }
+    export -f pgrep
+
+    run check_openclaw_status
+    [[ "$status" -eq 1 ]]
+
+    unset -f pgrep
+}
+
+@test "characterize_health_check_openclaw_running_healthy: returns 0" {
+    init_health_log
+    pgrep() { return 0; }
+    export -f pgrep
+    curl() { return 0; }
+    export -f curl
+
+    run check_openclaw_status
+    assert_success
+
+    unset -f pgrep
+    unset -f curl
+}
+
+@test "characterize_health_check_openclaw_running_unhealthy: returns 2" {
+    init_health_log
+    pgrep() { return 0; }
+    export -f pgrep
+    curl() { return 1; }
+    export -f curl
+
+    run check_openclaw_status
+    [[ "$status" -eq 2 ]]
+
+    unset -f pgrep
+    unset -f curl
+}
+
+@test "characterize_health_check_openclaw_custom_port: passes port to curl" {
+    init_health_log
+    pgrep() { return 0; }
+    export -f pgrep
+    curl() { return 0; }
+    export -f curl
+
+    run check_openclaw_status 8080
+    assert_success
+
+    unset -f pgrep
+    unset -f curl
+}
+
+# ---------------------------------------------------------------------------
+# check_model_loaded — Verify model is loaded via API
+# Returns: 0 = model loaded, 1 = no model
+# ---------------------------------------------------------------------------
+
+@test "characterize_health_check_model_loaded_has_models: returns 0" {
+    init_health_log
+    curl() {
+        echo '{"models":[{"name":"gemma4:e2b","size":1500000000}]}'
+        return 0
+    }
+    export -f curl
+
+    run check_model_loaded
+    assert_success
+
+    unset -f curl
+}
+
+@test "characterize_health_check_model_loaded_no_models: returns 1" {
+    init_health_log
+    curl() {
+        echo '{"models":[]}'
+        return 0
+    }
+    export -f curl
+
+    run check_model_loaded
+    assert_failure
+
+    unset -f curl
+}
+
+@test "characterize_health_check_model_loaded_api_down: returns 1" {
+    init_health_log
+    curl() { return 1; }
+    export -f curl
+
+    run check_model_loaded
+    assert_failure
+
+    unset -f curl
+}
+
+# ---------------------------------------------------------------------------
+# check_battery_health — Battery level thresholds
+# Returns: 0 = OK, 1 = low, 2 = critical
+# ---------------------------------------------------------------------------
+
+@test "characterize_health_check_battery_charging: always returns 0" {
+    init_health_log
+    detect_battery() {
+        BATTERY_LEVEL=10
+        BATTERY_CHARGING="yes"
+    }
+    run check_battery_health
+    assert_success
+}
+
+@test "characterize_health_check_battery_ok: 80% returns 0" {
+    init_health_log
+    detect_battery() {
+        BATTERY_LEVEL=80
+        BATTERY_CHARGING="no"
+    }
+    run check_battery_health
+    assert_success
+}
+
+@test "characterize_health_check_battery_low: 20% returns 1" {
+    init_health_log
+    detect_battery() {
+        BATTERY_LEVEL=20
+        BATTERY_CHARGING="no"
+    }
+    run check_battery_health
+    [[ "$status" -eq 1 ]]
+}
+
+@test "characterize_health_check_battery_critical: 10% returns 2" {
+    init_health_log
+    detect_battery() {
+        BATTERY_LEVEL=10
+        BATTERY_CHARGING="no"
+    }
+    run check_battery_health
+    [[ "$status" -eq 2 ]]
+}
+
+@test "characterize_health_check_battery_boundary_15: exactly 15% returns 1" {
+    init_health_log
+    detect_battery() {
+        BATTERY_LEVEL=15
+        BATTERY_CHARGING="no"
+    }
+    run check_battery_health
+    # 15 is not < 15, so not critical; but is < 30, so returns 1
+    [[ "$status" -eq 1 ]]
+}
+
+@test "characterize_health_check_battery_boundary_14: 14% returns 2" {
+    init_health_log
+    detect_battery() {
+        BATTERY_LEVEL=14
+        BATTERY_CHARGING="no"
+    }
+    run check_battery_health
+    [[ "$status" -eq 2 ]]
+}
+
+@test "characterize_health_check_battery_boundary_30: exactly 30% returns 0" {
+    init_health_log
+    detect_battery() {
+        BATTERY_LEVEL=30
+        BATTERY_CHARGING="no"
+    }
+    run check_battery_health
+    assert_success
+}
+
+@test "characterize_health_check_battery_unknown: -1 returns 0" {
+    init_health_log
+    detect_battery() {
+        BATTERY_LEVEL=-1
+        BATTERY_CHARGING="unknown"
+    }
+    run check_battery_health
+    assert_success
+}
+
+# ---------------------------------------------------------------------------
+# check_network_connectivity — Network check wrapper
+# Returns: 0 = OK, 1 = no connectivity
+# ---------------------------------------------------------------------------
+
+@test "characterize_health_check_network_connected: returns 0" {
+    init_health_log
+    detect_network() { return 0; }
+    run check_network_connectivity
+    assert_success
+}
+
+@test "characterize_health_check_network_disconnected: returns 1" {
+    init_health_log
+    detect_network() { return 1; }
+    run check_network_connectivity
+    assert_failure
+}

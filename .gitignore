@@ -25,3 +25,10 @@ Thumbs.db
 # Node
 node_modules/
 package-lock.json
+
+# Test artifacts
+tests/tmp/
+
+# MoAI runtime state (not project config)
+.moai/state/
+.moai/logs/

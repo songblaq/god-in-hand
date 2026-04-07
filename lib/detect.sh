@@ -3,6 +3,7 @@
 # God in Hand — Device & Environment Detection Module
 # ============================================================================
 
+# shellcheck disable=SC2034  # Variables are used by scripts that source this module
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ---------------------------------------------------------------------------
