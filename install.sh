@@ -23,9 +23,21 @@
 set -o pipefail
 
 # ---------------------------------------------------------------------------
+# CRITICAL: When running via "curl | bash", stdin is the curl stream.
+# We must reopen stdin from /dev/tty for interactive prompts,
+# and use </dev/null for non-interactive commands (pkg, npm, etc.)
+# ---------------------------------------------------------------------------
+PIPED_INSTALL=false
+if [[ ! -t 0 ]]; then
+    PIPED_INSTALL=true
+    # Reopen stdin from terminal for interactive prompts
+    exec 3</dev/tty 2>/dev/null || exec 3</dev/null
+fi
+
+# ---------------------------------------------------------------------------
 # Bootstrap — Determine script location
 # ---------------------------------------------------------------------------
-if [[ -n "${BASH_SOURCE[0]}" && "${BASH_SOURCE[0]}" != "bash" ]]; then
+if [[ -n "${BASH_SOURCE[0]}" && "${BASH_SOURCE[0]}" != "bash" && "${BASH_SOURCE[0]}" != "/dev/stdin" ]]; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
     # Running via curl pipe — download the repo first
@@ -103,9 +115,23 @@ ask_yn() {
     local default="${2:-y}"
     local answer
     echo -ne "  ${prompt} "
-    read -r answer
+    if $PIPED_INSTALL; then
+        read -r answer <&3 || answer="$default"
+    else
+        read -r answer
+    fi
     answer="${answer:-$default}"
     [[ "${answer,,}" == "y" || "${answer,,}" == "yes" ]]
+}
+
+# read_input — Read a line from user (works in curl|bash mode too)
+read_input() {
+    local var_name="$1"
+    if $PIPED_INSTALL; then
+        read -r "$var_name" <&3 || eval "$var_name=''"
+    else
+        read -r "$var_name"
+    fi
 }
 
 run_cmd() {
@@ -313,7 +339,7 @@ phase1_existing() {
     if detect_existing_openclaw; then
         print_info "$(msg found_openclaw) (${OPENCLAW_VERSION})"
         echo -ne "  $(msg openclaw_action) "
-        read -r oc_choice
+        read_input oc_choice
         case "${oc_choice,,}" in
             u|update)
                 log "User chose to update OpenClaw"
@@ -433,31 +459,34 @@ phase3_install() {
     # --- pkg update ---
     print_info "$(msg updating_pkg)"
 
-    # Try default mirror, fallback to alternatives
-    if ! pkg update -y >> "$GIH_LOG" 2>&1; then
+    # CRITICAL: pkg/apt reads from stdin — must redirect from /dev/null
+    # when running via "curl | bash" to prevent consuming the script stream
+    print_info "$(msg updating_pkg)"
+    if ! pkg update -y </dev/null >> "$GIH_LOG" 2>&1; then
         print_warn "Default mirror failed. Trying alternative..."
-        # Termux mirror auto-select
         if command -v termux-change-repo &>/dev/null; then
-            termux-change-repo 2>/dev/null || true
+            termux-change-repo </dev/null 2>/dev/null || true
         fi
-        if ! pkg update -y >> "$GIH_LOG" 2>&1; then
+        if ! pkg update -y </dev/null >> "$GIH_LOG" 2>&1; then
             die "Failed to update packages. Check network and mirrors."
         fi
     fi
-    pkg upgrade -y >> "$GIH_LOG" 2>&1
+    pkg upgrade -y </dev/null >> "$GIH_LOG" 2>&1
     print_ok "Packages updated"
 
-    # --- Install dependencies ---
+    # --- Install dependencies (one batch is faster and more reliable) ---
     print_info "$(msg installing_deps)"
-    local deps="nodejs-lts git build-essential cmake python proot-distro curl wget"
-    for dep in $deps; do
-        if ! dpkg -s "$dep" >/dev/null 2>&1; then
-            log "Installing: $dep"
-            if ! pkg install -y "$dep" >> "$GIH_LOG" 2>&1; then
-                print_warn "Failed to install: $dep"
+    local deps="curl wget git nodejs-lts python build-essential cmake proot-distro"
+    log "Installing all deps in one batch: $deps"
+    if ! pkg install -y $deps </dev/null >> "$GIH_LOG" 2>&1; then
+        print_warn "Batch install had errors. Trying individual packages..."
+        for dep in $deps; do
+            if ! command -v "$dep" &>/dev/null && ! dpkg -s "$dep" >/dev/null 2>&1; then
+                log "Installing individually: $dep"
+                pkg install -y "$dep" </dev/null >> "$GIH_LOG" 2>&1 || print_warn "Failed to install: $dep"
             fi
-        fi
-    done
+        done
+    fi
     print_ok "Dependencies installed"
 
     # --- Verify Node.js ---
@@ -467,16 +496,16 @@ phase3_install() {
     node_major=$(echo "$node_ver" | grep -oE '^v([0-9]+)' | tr -d 'v')
     if [[ "${node_major:-0}" -lt 22 ]]; then
         print_warn "Node.js ${node_ver} — expected v22+. Attempting upgrade..."
-        pkg install -y nodejs-lts >> "$GIH_LOG" 2>&1
+        pkg install -y nodejs-lts </dev/null >> "$GIH_LOG" 2>&1
         node_ver=$(node --version 2>/dev/null || echo "none")
     fi
     print_ok "Node.js: ${node_ver}"
 
     # --- Install OpenClaw ---
     print_info "$(msg installing_openclaw)"
-    if ! npm install -g openclaw >> "$GIH_LOG" 2>&1; then
+    if ! npm install -g openclaw </dev/null >> "$GIH_LOG" 2>&1; then
         print_warn "npm install openclaw failed. Retrying with --force..."
-        npm install -g openclaw --force >> "$GIH_LOG" 2>&1 || true
+        npm install -g openclaw --force </dev/null >> "$GIH_LOG" 2>&1 || true
     fi
 
     if command -v openclaw &>/dev/null; then
@@ -493,12 +522,12 @@ phase3_install() {
             print_info "Installing Ollama..."
             if ! command -v ollama &>/dev/null; then
                 # Ollama install for Termux
-                if curl -fsSL https://ollama.com/install.sh 2>/dev/null | bash >> "$GIH_LOG" 2>&1; then
+                if curl -fsSL https://ollama.com/install.sh 2>/dev/null | bash </dev/null >> "$GIH_LOG" 2>&1; then
                     print_ok "Ollama installed"
                 else
                     # Fallback: build from source or use prebuilt
                     print_warn "Ollama auto-install failed. Trying pkg..."
-                    pkg install -y ollama >> "$GIH_LOG" 2>&1 || true
+                    pkg install -y ollama </dev/null >> "$GIH_LOG" 2>&1 || true
                 fi
             fi
 
@@ -642,7 +671,8 @@ phase5_hub() {
         echo -e "  $(msg select_role)"
         echo -e "    Recommended: ${BOLD}${rec_role}${NC} (based on ${TOTAL_RAM_GB}GB RAM)"
         echo -ne "  Choice [H/W/P]: "
-        read -r role_choice
+        local role_choice=""
+        read_input role_choice
         case "${role_choice,,}" in
             h|hub)   DEVICE_ROLE="hub" ;;
             w|worker) DEVICE_ROLE="worker" ;;

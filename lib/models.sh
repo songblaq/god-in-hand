@@ -81,10 +81,15 @@ sys.exit(1)
             return 0
         fi
     else
-        # Fallback: grep-based parsing (less reliable but works without python)
+        # Fallback: grep-based parsing (works without python)
         if grep -q "\"$model_id\"" "$MODELS_JSON"; then
-            MODEL_NAME=$(grep -A2 "\"$model_id\"" "$MODELS_JSON" | grep '"name"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
-            MODEL_OLLAMA_TAG=$(grep -A20 "\"$model_id\"" "$MODELS_JSON" | grep '"ollama_tag"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+            local block
+            block=$(grep -A30 "\"id\": \"$model_id\"" "$MODELS_JSON")
+            MODEL_NAME=$(echo "$block" | grep '"name"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+            MODEL_RAM=$(echo "$block" | grep '"ram_required_gb"' | head -1 | sed 's/.*: *\([0-9.]*\).*/\1/')
+            MODEL_OLLAMA_TAG=$(echo "$block" | grep '"ollama_tag"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+            MODEL_HF_REPO=$(echo "$block" | grep '"hf_repo"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
+            MODEL_HF_FILE=$(echo "$block" | grep '"hf_file"' | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
             return 0
         fi
     fi
@@ -227,7 +232,12 @@ install_models() {
 
     echo ""
     echo "Install recommended models? [Y/n/custom]"
-    read -r choice
+    local choice=""
+    if [[ "${PIPED_INSTALL:-false}" == "true" ]]; then
+        read -r choice <&3 2>/dev/null || choice="y"
+    else
+        read -r choice
+    fi
 
     case "${choice,,}" in
         n|no)
@@ -238,7 +248,12 @@ install_models() {
         c|custom)
             echo "Enter model IDs (space-separated):"
             echo "Available: gemma4-e2b-q4 gemma4-e4b-q4 qwen3-0.6b-q8 qwen3-1.7b-q4 qwen3-4b-q4 qwen3.5-35b-a3b-q4 llama3.2-1b-q4 llama3.2-3b-q4 phi4-mini-q4"
-            read -r custom_models
+            local custom_models=""
+            if [[ "${PIPED_INSTALL:-false}" == "true" ]]; then
+                read -r custom_models <&3 2>/dev/null || custom_models=""
+            else
+                read -r custom_models
+            fi
             recommended="$custom_models"
             ;;
     esac
