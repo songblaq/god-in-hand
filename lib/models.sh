@@ -17,23 +17,24 @@ recommend_models() {
     local ram_gb="${1:-8}"
     local models=""
 
-    # RAM thresholds based on Ollama actual runtime requirements
-    # Verified via: ollama list (file size) and Ollama error messages (runtime requirement)
-    # gemma4:e2b=7.2GB file→8GB runtime, gemma4:e4b→12GB, qwen3:4b=2.5GB→4GB, qwen3:0.6b=522MB→1GB
+    # Priority: Gemma4 (multimodal agent) > Qwen3.5 MoE > Qwen3 (text fallback)
+    # Gemma4 is the core — supports image, audio, tool_calling for AI agents
+    # Qwen3.5/Qwen3 are text-only fallbacks when RAM is insufficient for Gemma4
+    # RAM verified via Ollama error messages: gemma4:e2b=8GB, e4b=12GB, qwen3.5-moe=8GB
     if [[ $ram_gb -ge 16 ]]; then
-        # Power node: large multimodal + MoE + routing
-        models="gemma4-e4b-q4 qwen3.5-35b-a3b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+        # Power node: best multimodal + MoE reasoning + router
+        models="gemma4-e4b-q4 qwen3.5-35b-a3b-q4 qwen3-0.6b-q8"
     elif [[ $ram_gb -ge 12 ]]; then
-        # Hub: E2B multimodal + reasoning + routing
-        models="gemma4-e2b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+        # Hub: both Gemma4 multimodal + router
+        models="gemma4-e4b-q4 gemma4-e2b-q4 qwen3-0.6b-q8"
     elif [[ $ram_gb -ge 8 ]]; then
-        # Worker: text models (Gemma4 E2B needs 8GB, tight fit)
-        models="qwen3-4b-q4 qwen3-1.7b-q4 qwen3-0.6b-q8"
+        # Worker: lightweight multimodal + router
+        models="gemma4-e2b-q4 qwen3-0.6b-q8"
     elif [[ $ram_gb -ge 6 ]]; then
-        # Light worker: small text models only
+        # Fallback: text-only (Gemma4 won't fit)
         models="qwen3-4b-q4 qwen3-0.6b-q8"
     elif [[ $ram_gb -ge 4 ]]; then
-        # Minimal worker
+        # Minimal fallback
         models="qwen3-1.7b-q4 qwen3-0.6b-q8"
     else
         # Ultra-minimal

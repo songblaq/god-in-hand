@@ -24,55 +24,55 @@ teardown() {
 # recommend_models — RAM-based model selection
 # ---------------------------------------------------------------------------
 
-@test "characterize_models_recommend_16gb: power node gets large models" {
+@test "characterize_models_recommend_16gb: power node gets E4B + MoE + router" {
     run recommend_models 16
     assert_success
-    assert_output "gemma4-e4b-q4 qwen3.5-35b-a3b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+    assert_output "gemma4-e4b-q4 qwen3.5-35b-a3b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_20gb: 20GB also gets power node models" {
+@test "characterize_models_recommend_20gb: 20GB also gets power models" {
     run recommend_models 20
     assert_success
-    assert_output "gemma4-e4b-q4 qwen3.5-35b-a3b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+    assert_output "gemma4-e4b-q4 qwen3.5-35b-a3b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_12gb: hub gets E2B + qwen4b + routing" {
+@test "characterize_models_recommend_12gb: hub gets both Gemma4 + router" {
     run recommend_models 12
     assert_success
-    assert_output "gemma4-e2b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+    assert_output "gemma4-e4b-q4 gemma4-e2b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_14gb: 14GB gets hub-tier models" {
+@test "characterize_models_recommend_14gb: 14GB gets hub-tier" {
     run recommend_models 14
     assert_success
-    assert_output "gemma4-e2b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+    assert_output "gemma4-e4b-q4 gemma4-e2b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_8gb: worker gets text models" {
+@test "characterize_models_recommend_8gb: worker gets E2B multimodal + router" {
     run recommend_models 8
     assert_success
-    assert_output "qwen3-4b-q4 qwen3-1.7b-q4 qwen3-0.6b-q8"
+    assert_output "gemma4-e2b-q4 qwen3-0.6b-q8"
 }
 
 @test "characterize_models_recommend_10gb: 10GB gets worker models" {
     run recommend_models 10
     assert_success
-    assert_output "qwen3-4b-q4 qwen3-1.7b-q4 qwen3-0.6b-q8"
+    assert_output "gemma4-e2b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_6gb: light worker gets small text" {
+@test "characterize_models_recommend_6gb: fallback text-only (no Gemma4)" {
     run recommend_models 6
     assert_success
     assert_output "qwen3-4b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_4gb: minimal worker" {
+@test "characterize_models_recommend_4gb: minimal fallback" {
     run recommend_models 4
     assert_success
     assert_output "qwen3-1.7b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_3gb: minimal gets only routing model" {
+@test "characterize_models_recommend_3gb: ultra-minimal routing only" {
     run recommend_models 3
     assert_success
     assert_output "qwen3-0.6b-q8"
@@ -81,13 +81,19 @@ teardown() {
 @test "characterize_models_recommend_default: no arg defaults to 8GB tier" {
     run recommend_models
     assert_success
-    assert_output "qwen3-4b-q4 qwen3-1.7b-q4 qwen3-0.6b-q8"
+    assert_output "gemma4-e2b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_12gb_contains_gemma4: gemma4 in 12GB+" {
+@test "characterize_models_recommend_8gb_contains_gemma4: gemma4 in 8GB+" {
     local result
-    result=$(recommend_models 12)
+    result=$(recommend_models 8)
     [[ "$result" == *"gemma4"* ]]
+}
+
+@test "characterize_models_recommend_6gb_no_gemma4: no gemma4 under 8GB" {
+    local result
+    result=$(recommend_models 6)
+    [[ "$result" != *"gemma4"* ]]
 }
 
 # ---------------------------------------------------------------------------
