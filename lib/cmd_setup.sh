@@ -342,55 +342,95 @@ phase3_install() {
     fi
     print_ok "Node.js: ${node_ver}"
 
-    # --- Install OpenClaw ---
-    print_info "$(msg installing_openclaw)"
-    if ! npm install -g openclaw </dev/null >> "$GIH_LOG" 2>&1; then
-        print_warn "npm install openclaw failed. Retrying with --force..."
-        npm install -g openclaw --force </dev/null >> "$GIH_LOG" 2>&1 || true
-    fi
-
+    # --- Install OpenClaw (with retry) ---
+    local openclaw_installed=false
     if command -v openclaw &>/dev/null; then
+        openclaw_installed=true
         local oc_ver
         oc_ver=$(openclaw --version 2>/dev/null || echo "unknown")
-        print_ok "OpenClaw installed: ${oc_ver}"
+        print_ok "OpenClaw already installed: ${oc_ver}"
     else
-        print_fail "OpenClaw installation failed. Check log: ${GIH_LOG}"
+        print_info "$(msg installing_openclaw)"
+        local attempt
+        for attempt in 1 2 3; do
+            if [[ $attempt -eq 1 ]]; then
+                npm install -g openclaw </dev/null >> "$GIH_LOG" 2>&1 && break
+            elif [[ $attempt -eq 2 ]]; then
+                print_warn "Attempt ${attempt}: Retrying with --force..."
+                npm install -g openclaw --force </dev/null >> "$GIH_LOG" 2>&1 && break
+            else
+                print_warn "Attempt ${attempt}: Trying npx as fallback..."
+                npm install -g openclaw --legacy-peer-deps </dev/null >> "$GIH_LOG" 2>&1 && break
+            fi
+        done
+
+        # Post-install check
+        if command -v openclaw &>/dev/null; then
+            openclaw_installed=true
+            local oc_ver
+            oc_ver=$(openclaw --version 2>/dev/null || echo "unknown")
+            print_ok "OpenClaw installed: ${oc_ver}"
+        else
+            print_fail "OpenClaw installation failed after 3 attempts."
+            echo "    Manual install: npm install -g openclaw"
+            echo "    Log: ${GIH_LOG}"
+        fi
     fi
 
-    # --- Model serving engine ---
+    # --- Install Ollama (with retry) ---
+    local ollama_installed=false
     case "$ENGINE" in
         ollama)
-            print_info "Installing Ollama..."
-            if ! command -v ollama &>/dev/null; then
-                # SECURITY NOTE [HIGH]: curl|bash pattern for Ollama install has no checksum
-                # verification. A compromised CDN or MITM attack (despite HTTPS) could
-                # inject arbitrary code. Consider pinning a known-good version hash.
+            if command -v ollama &>/dev/null; then
+                ollama_installed=true
+                local ollama_ver
+                ollama_ver=$(ollama --version 2>/dev/null | head -1)
+                print_ok "Ollama already installed: ${ollama_ver}"
+            else
+                print_info "Installing Ollama..."
+
+                # Method 1: Official install script
+                # SECURITY NOTE [HIGH]: curl|bash pattern — no checksum verification
                 if curl -fsSL https://ollama.com/install.sh 2>/dev/null | bash </dev/null >> "$GIH_LOG" 2>&1; then
-                    print_ok "Ollama installed"
+                    log "Ollama installed via official script"
                 else
-                    # Fallback: build from source or use prebuilt
-                    print_warn "Ollama auto-install failed. Trying pkg..."
-                    pkg install -y -o Dpkg::Options::="--force-confnew" ollama </dev/null >> "$GIH_LOG" 2>&1 || true
+                    log "Official script failed, trying pkg..."
+                    # Method 2: Termux package
+                    pkg install -y -o Dpkg::Options::="--force-confnew" ollama </dev/null >> "$GIH_LOG" 2>&1
+                fi
+
+                # Post-install check
+                if command -v ollama &>/dev/null; then
+                    ollama_installed=true
+                    local ollama_ver
+                    ollama_ver=$(ollama --version 2>/dev/null | head -1)
+                    print_ok "Ollama installed: ${ollama_ver}"
+                else
+                    print_fail "Ollama installation failed."
+                    echo "    Manual install: pkg install ollama"
+                    echo "    Or: curl -fsSL https://ollama.com/install.sh | bash"
+                    echo "    Log: ${GIH_LOG}"
                 fi
             fi
 
-            if command -v ollama &>/dev/null; then
-                local ollama_ver
-                ollama_ver=$(ollama --version 2>/dev/null | head -1)
-                print_ok "Ollama: ${ollama_ver}"
-
-                # Start Ollama server in background
-                print_info "Starting Ollama server..."
-                ollama serve >> "${GIH_LOG_DIR}/ollama.log" 2>&1 &
-                sleep 3
-
+            # Start Ollama server if installed
+            if $ollama_installed; then
                 if curl -sf "http://localhost:11434/api/version" >/dev/null 2>&1; then
-                    print_ok "Ollama server running on :11434"
+                    print_ok "Ollama server already running on :11434"
                 else
-                    print_warn "Ollama server failed to start. Check: ${GIH_LOG_DIR}/ollama.log"
+                    print_info "Starting Ollama server..."
+                    ollama serve >> "${GIH_LOG_DIR}/ollama.log" 2>&1 &
+                    # Wait with retry
+                    local wait_attempt
+                    for wait_attempt in 1 2 3 4 5; do
+                        sleep 2
+                        if curl -sf "http://localhost:11434/api/version" >/dev/null 2>&1; then
+                            print_ok "Ollama server running on :11434"
+                            break
+                        fi
+                        [[ $wait_attempt -eq 5 ]] && print_warn "Ollama server slow to start. Check: ${GIH_LOG_DIR}/ollama.log"
+                    done
                 fi
-            else
-                print_fail "Ollama not available. Model serving will need manual setup."
             fi
             ;;
 
@@ -419,7 +459,10 @@ phase3_install() {
     esac
 
     # --- Model download ---
-    if $SKIP_MODEL; then
+    if ! $ollama_installed && [[ "$ENGINE" == "ollama" ]]; then
+        print_warn "Ollama not installed — skipping model download."
+        echo "    Install Ollama first, then run: gih setup --skip-model"
+    elif $SKIP_MODEL; then
         print_info "Model download skipped (--skip-model). Install later:"
         echo "    ollama pull gemma4:e2b"
         echo "    ollama pull qwen3:0.6b"
@@ -458,38 +501,81 @@ phase3_install() {
 phase4_verify() {
     print_step "$(msg phase4)"
 
-    # --- OpenClaw doctor ---
-    print_info "$(msg running_doctor)"
-    run_openclaw_doctor || true
+    local missing_components=()
 
-    # --- Model inference test ---
-    print_info "$(msg testing_model)"
-    local api_base="http://localhost:11434"
-    if [[ "$ENGINE" == "llamacpp" ]]; then
-        api_base="http://localhost:8080"
+    # --- Check: Node.js ---
+    if command -v node &>/dev/null; then
+        print_ok "Node.js: $(node --version 2>/dev/null)"
+    else
+        print_fail "Node.js: not installed"
+        missing_components+=("nodejs-lts")
     fi
 
-    if test_model_inference "$api_base"; then
-        print_ok "$(msg test_ok)"
+    # --- Check: OpenClaw ---
+    if command -v openclaw &>/dev/null; then
+        print_ok "OpenClaw: $(openclaw --version 2>/dev/null || echo installed)"
+        run_openclaw_doctor || true
     else
-        print_warn "$(msg test_fail)"
-        echo "  This may be because no model is loaded yet."
-        echo "  Try: ollama run gemma4:e2b"
+        print_fail "OpenClaw: not installed"
+        missing_components+=("openclaw")
     fi
 
-    # --- Gateway test ---
-    if check_openclaw_status; then
-        print_ok "OpenClaw gateway is running"
-        local gw_url="http://localhost:3000"
-        echo -e "\n  $(msg dashboard_url)${CYAN}${gw_url}${NC}"
+    # --- Check: Ollama ---
+    if command -v ollama &>/dev/null; then
+        print_ok "Ollama: $(ollama --version 2>/dev/null | head -1)"
+
+        # Check server running
+        if curl -sf "http://localhost:11434/api/version" >/dev/null 2>&1; then
+            print_ok "Ollama server: running on :11434"
+
+            # Check models loaded
+            local model_count
+            model_count=$(ollama list 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')
+            if [[ "${model_count:-0}" -gt 0 ]]; then
+                print_ok "Models loaded: ${model_count}"
+            else
+                print_warn "No models loaded yet"
+            fi
+
+            # Inference test
+            print_info "$(msg testing_model)"
+            local api_base="http://localhost:11434"
+            [[ "$ENGINE" == "llamacpp" ]] && api_base="http://localhost:8080"
+            if test_model_inference "$api_base"; then
+                print_ok "$(msg test_ok)"
+            else
+                print_warn "$(msg test_fail)"
+                echo "    Model may not be loaded in memory yet."
+                echo "    Try: ollama run qwen3:0.6b"
+            fi
+        else
+            print_warn "Ollama server: not running"
+            echo "    Start with: ollama serve &"
+        fi
     else
-        print_info "OpenClaw gateway not started yet."
-        echo "  Start with: openclaw"
+        print_fail "Ollama: not installed"
+        missing_components+=("ollama")
+    fi
+
+    # --- Check: OpenClaw gateway ---
+    if command -v openclaw &>/dev/null; then
+        if check_openclaw_status 2>/dev/null; then
+            print_ok "OpenClaw gateway: running"
+        else
+            print_info "OpenClaw gateway: not started (run 'openclaw' to start)"
+        fi
     fi
 
     # --- Termux:API test ---
     if command -v termux-camera-photo &>/dev/null; then
-        print_ok "Termux:API available (camera, GPS, sensors)"
+        print_ok "Termux:API: available (camera, GPS, sensors)"
+    fi
+
+    # --- Missing components summary ---
+    if [[ ${#missing_components[@]} -gt 0 ]]; then
+        echo ""
+        print_warn "${#missing_components[@]} component(s) missing: ${missing_components[*]}"
+        echo "    Fix: gih setup   (re-run will retry failed components)"
     fi
 
     # --- Full health check ---
