@@ -169,18 +169,102 @@ main() {
     chmod +x "${GIH_HOME}/repo/bin/gih" 2>/dev/null || true
     chmod +x "${GIH_HOME}/repo/lib/"*.sh 2>/dev/null || true
 
-    # Step 4: Run setup automatically
-    echo -e "  ${GREEN}${BOLD}✓ CLI installed.${NC} Starting setup..."
+    # Step 4: Device compatibility check
+    echo -e "  ${GREEN}${BOLD}✓ CLI installed.${NC}"
+    echo ""
+    echo -e "${BOLD}━━━ Device Compatibility Check ━━━${NC}"
     echo ""
 
-    # Pass through any flags (--lang, etc.)
-    local setup_args=()
-    if [[ -n "$FORCE_LANG" ]]; then
-        setup_args+=(--lang "$FORCE_LANG")
+    # Source detect.sh for hardware checks
+    source "${GIH_HOME}/repo/lib/detect.sh"
+
+    # Detect key specs
+    local ok_count=0
+    local warn_count=0
+    local fail_count=0
+
+    # CPU
+    detect_cpu_arch
+    if [[ "$CPU_ARCH" == "aarch64" || "$CPU_ARCH" == "arm64" ]]; then
+        echo -e "  ${GREEN}✓${NC} CPU: ${CPU_ARCH}"
+        ((ok_count++))
+    else
+        echo -e "  ${RED}✗${NC} CPU: ${CPU_ARCH} (aarch64 required)"
+        ((fail_count++))
     fi
 
-    # Execute the CLI directly (don't rely on PATH being updated yet)
-    exec bash "${GIH_HOME}/repo/bin/gih" setup "${setup_args[@]}"
+    # RAM
+    detect_ram
+    local avail_gb=$(( AVAIL_RAM_MB / 1024 ))
+    if [[ ${TOTAL_RAM_MB:-0} -ge 8000 ]]; then
+        echo -e "  ${GREEN}✓${NC} RAM: ${TOTAL_RAM_GB}GB total, ${avail_gb}GB available"
+        ((ok_count++))
+    elif [[ ${TOTAL_RAM_MB:-0} -ge 4000 ]]; then
+        echo -e "  ${YELLOW}⚠${NC} RAM: ${TOTAL_RAM_GB}GB total, ${avail_gb}GB available (minimum — limited model selection)"
+        ((warn_count++))
+    else
+        echo -e "  ${RED}✗${NC} RAM: ${TOTAL_RAM_GB}GB total (4GB minimum required)"
+        ((fail_count++))
+    fi
+
+    # Storage
+    detect_storage
+    if [[ ${AVAIL_STORAGE_GB:-0} -ge 10 ]]; then
+        echo -e "  ${GREEN}✓${NC} Storage: ${AVAIL_STORAGE_GB}GB available"
+        ((ok_count++))
+    else
+        echo -e "  ${RED}✗${NC} Storage: ${AVAIL_STORAGE_GB}GB (10GB minimum required)"
+        ((fail_count++))
+    fi
+
+    # Network
+    detect_network
+    if [[ $? -eq 0 ]]; then
+        echo -e "  ${GREEN}✓${NC} Network: connected"
+        ((ok_count++))
+    else
+        echo -e "  ${RED}✗${NC} Network: not connected"
+        ((fail_count++))
+    fi
+
+    # Model recommendation preview
+    source "${GIH_HOME}/repo/lib/models.sh"
+    echo ""
+    echo -e "${BOLD}  Recommended Models (${TOTAL_RAM_GB}GB total / ${avail_gb}GB available):${NC}"
+    local models
+    models=$(recommend_models "${TOTAL_RAM_GB}")
+    local model_id
+    for model_id in $models; do
+        if get_model_info "$model_id"; then
+            local ram_status=""
+            if [[ -n "$MODEL_RAM" ]] && command -v awk &>/dev/null; then
+                local fits
+                fits=$(awk "BEGIN { print (${avail_gb} >= ${MODEL_RAM}) ? 1 : 0 }")
+                if [[ "$fits" == "0" ]]; then
+                    ram_status=" ${RED}(insufficient RAM — needs ${MODEL_RAM}GB, ${avail_gb}GB available)${NC}"
+                fi
+            fi
+            echo -e "    - ${MODEL_NAME} — ${MODEL_RAM}GB${ram_status}"
+        fi
+    done
+
+    # Summary
+    echo ""
+    if [[ $fail_count -gt 0 ]]; then
+        echo -e "  ${RED}${BOLD}✗ ${fail_count} issue(s) found.${NC} Setup may not complete successfully."
+    elif [[ $warn_count -gt 0 ]]; then
+        echo -e "  ${YELLOW}${BOLD}⚠ Device compatible with limitations.${NC}"
+    else
+        echo -e "  ${GREEN}${BOLD}✓ Device fully compatible.${NC}"
+    fi
+
+    echo ""
+    echo -e "${BOLD}  Next steps:${NC}"
+    echo "    gih setup            # Start full installation"
+    echo "    gih setup --lang ko  # Install in Korean"
+    echo "    gih clear            # Clean up if needed"
+    echo "    gih update           # Update later"
+    echo ""
 }
 
 main "$@"
