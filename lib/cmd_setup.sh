@@ -438,15 +438,15 @@ phase3_install() {
         fi
     fi
 
-    # --- OpenClaw onboarding ---
+    # --- OpenClaw initial config (non-interactive) ---
     if command -v openclaw &>/dev/null; then
         echo ""
-        print_info "Running OpenClaw onboarding wizard..."
-        echo "  (Follow the prompts to configure your agent)"
-        echo ""
+        print_info "Configuring OpenClaw defaults..."
         if ! $DRY_RUN; then
-            openclaw onboard 2>&1 || true
+            openclaw config set gateway.mode local 2>&1 || true
         fi
+        print_ok "OpenClaw configured (gateway.mode=local)"
+        echo "  Run 'openclaw' to complete the interactive setup"
     fi
 
     log "Phase 3 complete"

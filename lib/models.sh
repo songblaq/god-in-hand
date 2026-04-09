@@ -129,7 +129,7 @@ print_model_recommendation() {
             elif [[ "$model_id" == *"0.6b"* ]]; then
                 role_tag=" ${BLUE}[router]${NC}"
             fi
-            echo -e "  ${idx}) ${CYAN}${MODEL_NAME}${NC} — ${MODEL_RAM}GB RAM${role_tag}"
+            echo -e "  ${idx}) ${CYAN}${MODEL_NAME}${NC} — requires ${MODEL_RAM}GB RAM${role_tag}"
             if [[ -n "$MODEL_OLLAMA_TAG" ]]; then
                 echo -e "     ollama pull ${MODEL_OLLAMA_TAG}"
             fi
@@ -152,6 +152,12 @@ download_model_ollama() {
     if [[ -z "$tag" ]]; then
         echo "ERROR: No ollama tag specified"
         return 1
+    fi
+
+    # Check if model already downloaded
+    if ollama list 2>/dev/null | grep -q "^${tag}[[:space:]]"; then
+        echo "Model ${tag} already installed. Skipping."
+        return 0
     fi
 
     # Check if Ollama is running
@@ -230,6 +236,21 @@ download_model_hf() {
 }
 
 # ---------------------------------------------------------------------------
+# get_available_ram_gb — Get available RAM in GB (integer)
+# Returns: echoes available RAM in GB
+# ---------------------------------------------------------------------------
+get_available_ram_gb() {
+    local avail_kb
+    avail_kb=$(grep 'MemAvailable:' /proc/meminfo 2>/dev/null | awk '{print $2}')
+    if [[ -n "$avail_kb" && "$avail_kb" -gt 0 ]] 2>/dev/null; then
+        echo $(( avail_kb / 1048576 ))
+    else
+        # Fallback: return 0 to indicate unknown
+        echo "0"
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # install_models — Interactive model installation flow
 # Args: $1 = total RAM in GB, $2 = serving engine ("ollama" or "llamacpp")
 # ---------------------------------------------------------------------------
@@ -272,9 +293,29 @@ install_models() {
     local success_count=0
     local fail_count=0
 
+    # Get available RAM for runtime check
+    local avail_ram_gb
+    avail_ram_gb=$(get_available_ram_gb)
+
     for model_id in $recommended; do
         if get_model_info "$model_id"; then
             echo ""
+
+            # Check available RAM vs model requirement
+            if [[ "$avail_ram_gb" -gt 0 ]] 2>/dev/null; then
+                local ram_needed="${MODEL_RAM%.*}"
+                # Use bc or awk for float comparison
+                local insufficient=false
+                if command -v awk &>/dev/null; then
+                    insufficient=$(awk "BEGIN { print ($MODEL_RAM > $avail_ram_gb) ? \"true\" : \"false\" }")
+                fi
+                if [[ "$insufficient" == "true" ]]; then
+                    echo -e "⚠ ${YELLOW}${MODEL_NAME} requires ${MODEL_RAM}GB but only ~${avail_ram_gb}GB available on this device. Skipping.${NC}"
+                    ((fail_count++))
+                    continue
+                fi
+            fi
+
             echo -e "📦 Installing ${BOLD}${MODEL_NAME}${NC}..."
 
             if [[ "$engine" == "ollama" && -n "$MODEL_OLLAMA_TAG" ]]; then
