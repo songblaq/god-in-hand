@@ -24,46 +24,52 @@ teardown() {
 # recommend_models — RAM-based model selection
 # ---------------------------------------------------------------------------
 
-@test "characterize_models_recommend_14gb: power node gets large models" {
-    run recommend_models 14
-    assert_success
-    assert_output "gemma4-e4b-q4 qwen3.5-35b-a3b-q4 qwen3-0.6b-q8"
-}
-
-@test "characterize_models_recommend_16gb: 16GB also gets power node models" {
+@test "characterize_models_recommend_16gb: power node gets large models" {
     run recommend_models 16
     assert_success
     assert_output "gemma4-e4b-q4 qwen3.5-35b-a3b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_10gb: hub gets reasoning + routing" {
-    run recommend_models 10
+@test "characterize_models_recommend_20gb: 20GB also gets power node models" {
+    run recommend_models 20
     assert_success
-    assert_output "gemma4-e4b-q4 qwen3-0.6b-q8"
+    assert_output "gemma4-e4b-q4 qwen3.5-35b-a3b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_12gb: 12GB gets hub models" {
+@test "characterize_models_recommend_12gb: hub gets reasoning + qwen4b + routing" {
     run recommend_models 12
     assert_success
-    assert_output "gemma4-e4b-q4 qwen3-0.6b-q8"
+    assert_output "gemma4-e4b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_6gb: worker with decent RAM" {
-    run recommend_models 6
+@test "characterize_models_recommend_14gb: 14GB gets hub-tier models" {
+    run recommend_models 14
     assert_success
-    assert_output "gemma4-e2b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+    assert_output "gemma4-e4b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_8gb: 8GB gets 6GB-tier models" {
+@test "characterize_models_recommend_8gb: strong worker gets mid-size" {
     run recommend_models 8
     assert_success
-    assert_output "gemma4-e2b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+    assert_output "qwen3-4b-q4 gemma4-e2b-q4 qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_4gb: tight worker" {
+@test "characterize_models_recommend_10gb: 10GB gets strong worker models" {
+    run recommend_models 10
+    assert_success
+    assert_output "qwen3-4b-q4 gemma4-e2b-q4 qwen3-0.6b-q8"
+}
+
+@test "characterize_models_recommend_6gb: worker gets lightweight models" {
+    run recommend_models 6
+    assert_success
+    assert_output "gemma4-e2b-q4 qwen3-1.7b-q4 qwen3-0.6b-q8"
+}
+
+@test "characterize_models_recommend_4gb: minimal worker" {
     run recommend_models 4
     assert_success
-    assert_output "gemma4-e2b-q4 qwen3-0.6b-q8"
+    assert_output "qwen3-1.7b-q4 qwen3-0.6b-q8"
 }
 
 @test "characterize_models_recommend_3gb: minimal gets only routing model" {
@@ -72,16 +78,10 @@ teardown() {
     assert_output "qwen3-0.6b-q8"
 }
 
-@test "characterize_models_recommend_2gb: minimal tier" {
-    run recommend_models 2
-    assert_success
-    assert_output "qwen3-0.6b-q8"
-}
-
 @test "characterize_models_recommend_default: no arg defaults to 8GB tier" {
     run recommend_models
     assert_success
-    assert_output "gemma4-e2b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+    assert_output "qwen3-4b-q4 gemma4-e2b-q4 qwen3-0.6b-q8"
 }
 
 @test "characterize_models_recommend_6gb_contains_gemma4: AC-5 verify gemma4 in 6GB" {

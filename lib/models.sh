@@ -17,20 +17,24 @@ recommend_models() {
     local ram_gb="${1:-8}"
     local models=""
 
-    if [[ $ram_gb -ge 14 ]]; then
-        # Power node: primary large model + routing model
+    # RAM thresholds based on Ollama runtime requirements (model + KV cache + overhead)
+    if [[ $ram_gb -ge 16 ]]; then
+        # Power node: large models + routing
         models="gemma4-e4b-q4 qwen3.5-35b-a3b-q4 qwen3-0.6b-q8"
-    elif [[ $ram_gb -ge 10 ]]; then
+    elif [[ $ram_gb -ge 12 ]]; then
         # Hub: main reasoning + routing
-        models="gemma4-e4b-q4 qwen3-0.6b-q8"
+        models="gemma4-e4b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+    elif [[ $ram_gb -ge 8 ]]; then
+        # Strong worker: mid-size models
+        models="qwen3-4b-q4 gemma4-e2b-q4 qwen3-0.6b-q8"
     elif [[ $ram_gb -ge 6 ]]; then
-        # Worker with decent RAM
-        models="gemma4-e2b-q4 qwen3-4b-q4 qwen3-0.6b-q8"
+        # Worker: lightweight models only
+        models="gemma4-e2b-q4 qwen3-1.7b-q4 qwen3-0.6b-q8"
     elif [[ $ram_gb -ge 4 ]]; then
-        # Tight worker
-        models="gemma4-e2b-q4 qwen3-0.6b-q8"
+        # Minimal worker
+        models="qwen3-1.7b-q4 qwen3-0.6b-q8"
     else
-        # Minimal
+        # Ultra-minimal
         models="qwen3-0.6b-q8"
     fi
 
