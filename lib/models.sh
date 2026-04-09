@@ -6,7 +6,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELS_JSON="${SCRIPT_DIR}/../config/models.json"
-GIH_MODEL_DIR="${HOME}/.god-in-hand/models"
+GIH_MODEL_DIR="${GIH_HOME:-${HOME}/.god-in-hand}/models"
 
 # ---------------------------------------------------------------------------
 # recommend_models — Select best models based on available RAM

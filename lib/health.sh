@@ -6,7 +6,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/detect.sh" 2>/dev/null
 
-GIH_LOG_DIR="${HOME}/.god-in-hand/logs"
+GIH_LOG_DIR="${GIH_HOME:-${HOME}/.god-in-hand}/logs"
 GIH_LOG="${GIH_LOG_DIR}/health-$(date +%Y%m%d-%H%M%S).log"
 
 # ---------------------------------------------------------------------------

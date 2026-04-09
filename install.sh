@@ -24,7 +24,7 @@ if [[ ! -t 0 ]]; then
 fi
 
 GIH_VERSION="0.3.0"
-GIH_HOME="${HOME}/.gih"
+GIH_HOME="${HOME}/.god-in-hand"
 GIH_LANG=""
 
 # ---------------------------------------------------------------------------

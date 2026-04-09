@@ -395,10 +395,11 @@ detect_existing_models() {
     fi
 
     # Direct downloads
-    if [[ -d "$HOME/.god-in-hand/models" ]]; then
+    local model_dir="${GIH_HOME:-${HOME}/.god-in-hand}/models"
+    if [[ -d "$model_dir" ]]; then
         while IFS= read -r -d '' f; do
             EXISTING_MODELS+=("$f")
-        done < <(find "$HOME/.god-in-hand/models" -name "*.gguf" -print0 2>/dev/null)
+        done < <(find "$model_dir" -name "*.gguf" -print0 2>/dev/null)
     fi
 }
 

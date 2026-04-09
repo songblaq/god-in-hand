@@ -5,7 +5,7 @@
 set -o pipefail
 
 GIH_VERSION="0.3.0"
-GIH_HOME="${HOME}/.gih"
+GIH_HOME="${HOME}/.god-in-hand"
 GIH_REPO="${GIH_HOME}/repo"
 
 # If running from a local dev checkout (not installed via symlink),
