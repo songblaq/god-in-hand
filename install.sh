@@ -468,15 +468,17 @@ phase3_install() {
     fi
 
     # --- pkg update ---
-    # CRITICAL: Set DEBIAN_FRONTEND to prevent dpkg post-install scripts
-    # from hanging on interactive prompts in piped/non-interactive mode
+    # CRITICAL: Set DEBIAN_FRONTEND and dpkg options to prevent ALL interactive
+    # prompts in piped/non-interactive mode. Without --force-confnew, dpkg will
+    # still prompt about config file conflicts (e.g., openssl.cnf Y/I/N/O/D/Z)
     export DEBIAN_FRONTEND=noninteractive
+    export DPKG_OPTIONS="--force-confnew"
 
     # CRITICAL: pkg/apt reads from stdin — must redirect from /dev/null
     # when running via "curl | bash" to prevent consuming the script stream
     print_info "$(msg updating_pkg)"
     local pkg_output
-    if ! pkg_output=$(pkg update -y </dev/null 2>&1); then
+    if ! pkg_output=$(pkg update -y -o Dpkg::Options::="--force-confnew" </dev/null 2>&1); then
         log "pkg update failed: ${pkg_output}"
         # Check if repos are reachable at all
         if echo "$pkg_output" | grep -qiE "unable to locate|failed to fetch|repository.*not found"; then
@@ -488,8 +490,8 @@ phase3_install() {
             termux-change-repo </dev/null 2>/dev/null || true
         fi
         # Retry with apt-get directly (pkg is a wrapper that may behave differently)
-        if ! apt-get update -y </dev/null >> "$GIH_LOG" 2>&1; then
-            if ! pkg update -y </dev/null >> "$GIH_LOG" 2>&1; then
+        if ! apt-get update -y -o Dpkg::Options::="--force-confnew" </dev/null >> "$GIH_LOG" 2>&1; then
+            if ! pkg update -y -o Dpkg::Options::="--force-confnew" </dev/null >> "$GIH_LOG" 2>&1; then
                 print_fail "Failed to update packages. Last error:"
                 echo "    $(echo "$pkg_output" | tail -3 | head -1)"
                 die "Package update failed. Run 'termux-change-repo' manually, then retry."
@@ -498,7 +500,9 @@ phase3_install() {
     else
         echo "$pkg_output" >> "$GIH_LOG"
     fi
-    pkg upgrade -y </dev/null >> "$GIH_LOG" 2>&1
+    # Fix any interrupted dpkg state before upgrading
+    dpkg --configure -a --force-confnew </dev/null >> "$GIH_LOG" 2>&1 || true
+    pkg upgrade -y -o Dpkg::Options::="--force-confnew" </dev/null >> "$GIH_LOG" 2>&1
     print_ok "Packages updated"
 
     # --- Install dependencies (one batch is faster and more reliable) ---
@@ -506,7 +510,7 @@ phase3_install() {
     local deps="curl wget git nodejs-lts python build-essential cmake proot-distro"
     log "Installing all deps in one batch: $deps"
     local install_output
-    if ! install_output=$(pkg install -y $deps </dev/null 2>&1); then
+    if ! install_output=$(pkg install -y -o Dpkg::Options::="--force-confnew" $deps </dev/null 2>&1); then
         log "Batch install failed: ${install_output}"
         print_warn "Batch install had errors. Trying individual packages..."
         # Show the actual error to help diagnose
@@ -518,8 +522,8 @@ phase3_install() {
         for dep in $deps; do
             if ! command -v "$dep" &>/dev/null && ! dpkg -s "$dep" >/dev/null 2>&1; then
                 log "Installing individually: $dep"
-                if ! apt-get install -y "$dep" </dev/null >> "$GIH_LOG" 2>&1; then
-                    pkg install -y "$dep" </dev/null >> "$GIH_LOG" 2>&1 || print_warn "Failed to install: $dep"
+                if ! apt-get install -y -o Dpkg::Options::="--force-confnew" "$dep" </dev/null >> "$GIH_LOG" 2>&1; then
+                    pkg install -y -o Dpkg::Options::="--force-confnew" "$dep" </dev/null >> "$GIH_LOG" 2>&1 || print_warn "Failed to install: $dep"
                 fi
             fi
         done
@@ -535,7 +539,7 @@ phase3_install() {
     node_major=$(echo "$node_ver" | grep -oE '^v([0-9]+)' | tr -d 'v')
     if [[ "${node_major:-0}" -lt 22 ]]; then
         print_warn "Node.js ${node_ver} — expected v22+. Attempting upgrade..."
-        pkg install -y nodejs-lts </dev/null >> "$GIH_LOG" 2>&1
+        pkg install -y -o Dpkg::Options::="--force-confnew" nodejs-lts </dev/null >> "$GIH_LOG" 2>&1
         node_ver=$(node --version 2>/dev/null || echo "none")
     fi
     print_ok "Node.js: ${node_ver}"
@@ -568,7 +572,7 @@ phase3_install() {
                 else
                     # Fallback: build from source or use prebuilt
                     print_warn "Ollama auto-install failed. Trying pkg..."
-                    pkg install -y ollama </dev/null >> "$GIH_LOG" 2>&1 || true
+                    pkg install -y -o Dpkg::Options::="--force-confnew" ollama </dev/null >> "$GIH_LOG" 2>&1 || true
                 fi
             fi
 
