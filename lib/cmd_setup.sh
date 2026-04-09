@@ -4,7 +4,7 @@
 # Full 5-phase installation logic (extracted from install.sh)
 #
 # Usage:
-#   god-in-hand setup [OPTIONS]
+#   gih setup [OPTIONS]
 #
 # Options:
 #   --lang en|ko         Force language (default: auto-detect)
@@ -605,7 +605,7 @@ cmd_setup() {
             --model)       SPECIFIC_MODEL="$2"; shift 2 ;;
             --no-color)    NO_COLOR=true; RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; BOLD=''; NC=''; shift ;;
             --help|-h)
-                echo "Usage: god-in-hand setup [OPTIONS]"
+                echo "Usage: gih setup [OPTIONS]"
                 echo ""
                 echo "Options:"
                 echo "  --lang en|ko         Force language (default: auto-detect)"

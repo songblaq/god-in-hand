@@ -4,7 +4,7 @@
 # Update CLI and repository to latest version
 #
 # Usage:
-#   god-in-hand update [OPTIONS]
+#   gih update [OPTIONS]
 #
 # Options:
 #   --no-color           Disable colored output
@@ -16,7 +16,7 @@ cmd_update() {
         case "$1" in
             --no-color) RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; BOLD=''; NC=''; shift ;;
             --help|-h)
-                echo "Usage: god-in-hand update [OPTIONS]"
+                echo "Usage: gih update [OPTIONS]"
                 echo ""
                 echo "Options:"
                 echo "  --no-color           Disable colored output"
@@ -68,7 +68,7 @@ cmd_update() {
     new_version=$(grep -oP 'GIH_VERSION="\K[^"]+' "${repo_dir}/install.sh" 2>/dev/null || echo "unknown")
 
     # --- Re-link CLI if needed ---
-    local cli_source="${repo_dir}/bin/god-in-hand"
+    local cli_source="${repo_dir}/bin/gih"
     if [[ -f "$cli_source" ]]; then
         chmod +x "$cli_source"
 
@@ -82,7 +82,7 @@ cmd_update() {
             prefix="/usr/local"
         fi
 
-        local link_target="${prefix}/bin/god-in-hand"
+        local link_target="${prefix}/bin/gih"
         if [[ -L "$link_target" || -f "$link_target" ]]; then
             ln -sf "$cli_source" "$link_target" 2>/dev/null || true
         fi

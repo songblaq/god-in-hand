@@ -4,7 +4,7 @@
 # Remove previous installation data, stop services, fix broken state
 #
 # Usage:
-#   god-in-hand clear [OPTIONS]
+#   gih clear [OPTIONS]
 #
 # Options:
 #   --force              Skip confirmation prompts
@@ -23,7 +23,7 @@ cmd_clear() {
             --keep-models) keep_models=true; shift ;;
             --no-color)    RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; BOLD=''; NC=''; shift ;;
             --help|-h)
-                echo "Usage: god-in-hand clear [OPTIONS]"
+                echo "Usage: gih clear [OPTIONS]"
                 echo ""
                 echo "Options:"
                 echo "  --force              Skip confirmation prompts"
@@ -126,6 +126,6 @@ cmd_clear() {
 
     echo ""
     echo -e "  ${GREEN}Cleanup complete.${NC}"
-    echo "  Run 'god-in-hand setup' to reinstall."
+    echo "  Run 'gih setup' to reinstall."
     echo ""
 }

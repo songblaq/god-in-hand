@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 #  God in Hand — Lightweight Bootstrap Installer
-#  Downloads the CLI tool and creates a symlink. Run 'god-in-hand setup' after.
+#  Downloads the CLI tool and creates a symlink. Run 'gih setup' after.
 #
 #  Usage:
 #    curl -sL https://raw.githubusercontent.com/songblaq/god-in-hand/main/install.sh | bash
@@ -23,8 +23,8 @@ if [[ ! -t 0 ]]; then
     exec 3</dev/tty 2>/dev/null || exec 3</dev/null
 fi
 
-GIH_VERSION="0.2.1"
-GIH_HOME="${HOME}/.god-in-hand"
+GIH_VERSION="0.3.0"
+GIH_HOME="${HOME}/.gih"
 GIH_LANG=""
 
 # ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: curl -sL URL | bash"
             echo "       bash install.sh [--lang en|ko]"
             echo ""
-            echo "Installs the God in Hand CLI. Run 'god-in-hand setup' afterwards."
+            echo "Installs the God in Hand CLI. Run 'gih setup' afterwards."
             exit 0
             ;;
         *) shift ;;
@@ -106,7 +106,7 @@ bootstrap_repo() {
 # create_symlink — Link CLI to a directory in PATH
 # ---------------------------------------------------------------------------
 create_symlink() {
-    local cli_source="${GIH_HOME}/repo/bin/god-in-hand"
+    local cli_source="${GIH_HOME}/repo/bin/gih"
 
     if [[ ! -f "$cli_source" ]]; then
         die "CLI entry point not found at ${cli_source}"
@@ -133,7 +133,7 @@ create_symlink() {
         fi
     fi
 
-    local link_target="${prefix}/bin/god-in-hand"
+    local link_target="${prefix}/bin/gih"
     ln -sf "$cli_source" "$link_target" 2>/dev/null || {
         # Try with sudo for /usr/local
         if [[ "$prefix" == "/usr/local" ]]; then
@@ -166,22 +166,21 @@ main() {
     fi
 
     # Step 3: Make all scripts executable
-    chmod +x "${GIH_HOME}/repo/bin/god-in-hand" 2>/dev/null || true
+    chmod +x "${GIH_HOME}/repo/bin/gih" 2>/dev/null || true
     chmod +x "${GIH_HOME}/repo/lib/"*.sh 2>/dev/null || true
 
-    # Step 4: Success message
+    # Step 4: Run setup automatically
+    echo -e "  ${GREEN}${BOLD}✓ CLI installed.${NC} Starting setup..."
     echo ""
-    echo -e "  ${GREEN}${BOLD}✓ God in Hand CLI installed.${NC}"
-    echo ""
-    echo "  Next step:"
-    echo "    god-in-hand setup        # Full installation (Ollama, models, etc.)"
-    echo ""
-    echo "  Other commands:"
-    echo "    god-in-hand setup --help  # See setup options"
-    echo "    god-in-hand clear         # Clean up installation"
-    echo "    god-in-hand update        # Update to latest version"
-    echo "    god-in-hand health        # Run diagnostics"
-    echo ""
+
+    # Pass through any flags (--lang, etc.)
+    local setup_args=()
+    if [[ -n "$FORCE_LANG" ]]; then
+        setup_args+=(--lang "$FORCE_LANG")
+    fi
+
+    # Execute the CLI directly (don't rely on PATH being updated yet)
+    exec bash "${GIH_HOME}/repo/bin/gih" setup "${setup_args[@]}"
 }
 
 main "$@"
